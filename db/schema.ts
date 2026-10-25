@@ -75,3 +75,13 @@ export const studentSubjectResults = pgTable(
   },
   (table) => [unique().on(table.studentId, table.subjectId)],
 )
+
+// 로그인 세션. id는 쿠키에 담긴 토큰의 SHA-256 해시이며 토큰 원문은 저장하지 않는다.
+export const sessions = pgTable('sessions', {
+  id: text().primaryKey(),
+  sub: text().notNull(),
+  email: text().notNull(),
+  name: text().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})

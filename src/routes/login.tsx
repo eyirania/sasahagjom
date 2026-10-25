@@ -1,5 +1,5 @@
+import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { oauthLogin } from '@netlify/identity'
 import { useIdentity } from '../lib/identity-context'
 
 export const Route = createFileRoute('/login')({
@@ -9,6 +9,10 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { user, ready } = useIdentity()
   const navigate = useNavigate()
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    setError(new URLSearchParams(window.location.search).get('error'))
+  }, [])
 
   if (ready && user) {
     navigate({ to: '/' })
@@ -22,8 +26,9 @@ function LoginPage() {
         <p className="text-sm text-gray-500 mb-6">
           학교 이메일(<span className="font-mono">@sasa.hs.kr</span>)로만 로그인할 수 있습니다.
         </p>
+        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
         <button
-          onClick={() => oauthLogin('google')}
+          onClick={() => { window.location.href = `${import.meta.env.BASE_URL}auth/google` }}
           className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-lg py-2.5 font-medium text-gray-700 hover:bg-gray-50"
         >
           Google로 로그인

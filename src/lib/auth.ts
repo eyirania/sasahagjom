@@ -1,12 +1,17 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getUser } from '@netlify/identity'
 
 export const ADMIN_EMAIL = 'eyirania@sasa.hs.kr'
 export const ALLOWED_EMAIL_DOMAIN = 'sasa.hs.kr'
 
 export const getServerUser = createServerFn({ method: 'GET' }).handler(async () => {
-  const user = await getUser()
-  return (user ?? null) as any
+  const { getSessionUser } = await import('../server/session.server')
+  return (await getSessionUser()) as any
+})
+
+export const logoutServer = createServerFn({ method: 'POST' }).handler(async () => {
+  const { destroySession } = await import('../server/session.server')
+  await destroySession()
+  return null
 })
 
 export function isAdmin(user: { email?: string; roles?: string[] } | null | undefined) {

@@ -5,7 +5,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getUser, logout as nlLogout, onAuthChange, type User } from '@netlify/identity'
+import { getServerUser, logoutServer } from './auth'
+
+export type User = { id: string; email: string; name: string; roles: string[] }
 
 interface IdentityContextValue {
   user: User | null
@@ -20,20 +22,20 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    getUser().then((u) => {
-      setUser(u ?? null)
+    getServerUser().then((u) => {
+      setUser((u as User | null) ?? null)
       setReady(true)
     })
-
-    const unsubscribe = onAuthChange((_event, u) => {
-      setUser(u ?? null)
-    })
-
-    return unsubscribe
   }, [])
 
+  const logout = async () => {
+    await logoutServer()
+    setUser(null)
+    window.location.href = import.meta.env.BASE_URL
+  }
+
   return (
-    <IdentityContext.Provider value={{ user, ready, logout: nlLogout }}>
+    <IdentityContext.Provider value={{ user, ready, logout }}>
       {children}
     </IdentityContext.Provider>
   )

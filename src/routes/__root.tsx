@@ -2,7 +2,6 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 
 import '../styles.css'
 import { IdentityProvider } from '../lib/identity-context'
-import { CallbackHandler } from '../components/CallbackHandler'
 import { NavBar } from '../components/NavBar'
 
 export const Route = createRootRoute({
@@ -24,10 +23,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <IdentityProvider>
-          <CallbackHandler>
-            <NavBar />
-            {children}
-          </CallbackHandler>
+          <NavBar />
+          {children}
         </IdentityProvider>
         <Scripts />
       </body>

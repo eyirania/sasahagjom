@@ -21,20 +21,22 @@
 
 ## 기술 스택
 
-- TanStack Start (React 19 + TanStack Router) + Vite 7 + Tailwind CSS 4
-- Netlify Identity (Google OAuth) — 학교 도메인 제한 및 관리자 role 부여는 Identity 웹훅으로 처리
-- Netlify Database (Postgres) + Drizzle ORM
+- TanStack Start (React 19 + TanStack Router) + Vite 7 + Tailwind CSS 4, `/p/sahak` 경로 아래에서 서비스
+- Google OAuth 직접 구현 (PKCE) + Postgres 세션. `@sasa.hs.kr`만 허용, 관리자는 `eyirania@sasa.hs.kr`
+- PostgreSQL + Drizzle ORM
 - Chart.js (react-chartjs-2)
 
-## 로컬 실행
+## 실행 (맥미니 셀프호스팅)
+
+배포 방법은 `deploy/DEPLOY.md` 참고. 환경 변수는 `deploy/env.example`.
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm build
+pnpm migrate   # DATABASE_URL 필요
+pnpm start     # 127.0.0.1:5000
 ```
-
-`netlify dev`를 통해 실행됩니다. Netlify Identity(로그인)는 로컬에서 동작하지 않으며, 실제 Netlify 배포 환경(프로덕션 또는 배포 미리보기)에서만 로그인 기능을 테스트할 수 있습니다.
 
 ## 데이터베이스
 
-Netlify Database(관리형 Postgres)와 Drizzle ORM을 사용합니다. 스키마는 `db/schema.ts`, 마이그레이션은 `netlify/database/migrations/`에 있으며 배포 시 자동으로 적용됩니다.
+스키마는 `db/schema.ts`, 마이그레이션은 `netlify/database/migrations/`(폴더 이름은 옛 호환용)에 있고 `pnpm migrate`로 적용합니다. 백업은 `scripts/backup.sh`, Netlify에서 옮길 때는 `scripts/import-csv.sh`를 씁니다.
