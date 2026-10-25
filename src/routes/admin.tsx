@@ -48,6 +48,30 @@ function AdminPage() {
     ],
   }
 
+  const splitChartData = {
+    labels: stats.splitStats.filter((s) => s.exam.n > 0 || s.perf.n > 0).map((s) => s.name),
+    datasets: [
+      {
+        label: '지필 평균 득점률 (%)',
+        data: stats.splitStats.filter((s) => s.exam.n > 0 || s.perf.n > 0).map((s) => (s.exam.mean === null ? null : Number((s.exam.mean * 100).toFixed(1)))),
+        backgroundColor: 'rgba(79, 107, 255, 0.75)',
+        borderRadius: 4,
+      },
+      {
+        label: '수행 평균 득점률 (%)',
+        data: stats.splitStats.filter((s) => s.exam.n > 0 || s.perf.n > 0).map((s) => (s.perf.mean === null ? null : Number((s.perf.mean * 100).toFixed(1)))),
+        backgroundColor: 'rgba(46, 196, 182, 0.75)',
+        borderRadius: 4,
+      },
+    ],
+  }
+  const itemsBySubject = new Map<number, typeof stats.itemStats>()
+  for (const item of stats.itemStats) {
+    const list = itemsBySubject.get(item.subjectId) ?? []
+    list.push(item)
+    itemsBySubject.set(item.subjectId, list)
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div>
@@ -76,6 +100,112 @@ function AdminPage() {
           />
         </div>
       )}
+
+      {mounted && splitChartData.labels.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">과목별 지필 · 수행 평균 득점률</h2>
+          <p className="text-xs text-gray-500 mb-4">학생별 득점률(입력한 항목 기준)의 평균입니다. 해당 영역을 입력한 학생이 없으면 표시하지 않습니다.</p>
+          <Bar
+            data={splitChartData}
+            options={{
+              responsive: true,
+              plugins: { legend: { position: 'bottom' } },
+              scales: { y: { beginAtZero: true, max: 100 } },
+            }}
+          />
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm p-6 overflow-x-auto">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">지필 · 수행 분석 · 입력률</h2>
+        <p className="text-xs text-gray-500 mb-4">득점률은 학생별 (입력 항목의 반영 점수 ÷ 반영 만점). 표본 수(n)가 작으면 해석에 주의하세요.</p>
+        <table className="w-full text-sm whitespace-nowrap">
+          <thead>
+            <tr className="text-left text-gray-500 border-b border-gray-200">
+              <th className="py-2 pr-4">과목</th>
+              <th className="py-2 pr-4">입력 학생</th>
+              <th className="py-2 pr-4">입력률</th>
+              <th className="py-2 pr-4">지필 평균 (n)</th>
+              <th className="py-2 pr-4">지필 표준편차</th>
+              <th className="py-2 pr-4">수행 평균 (n)</th>
+              <th className="py-2 pr-4">수행 표준편차</th>
+              <th className="py-2 pr-4">예상 원점수 평균</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.splitStats.map((s) => (
+              <tr key={s.subjectId} className="border-b border-gray-100">
+                <td className="py-2 pr-4">{s.name}</td>
+                <td className="py-2 pr-4">{s.entered} / {stats.studentCount}</td>
+                <td className="py-2 pr-4">{s.enteredRate === null ? '—' : `${(s.enteredRate * 100).toFixed(0)}%`}</td>
+                <td className="py-2 pr-4">{s.exam.mean === null ? '—' : `${(s.exam.mean * 100).toFixed(1)}% (${s.exam.n})`}</td>
+                <td className="py-2 pr-4">{s.exam.sd === null ? '—' : `${(s.exam.sd * 100).toFixed(1)}%p`}</td>
+                <td className="py-2 pr-4">{s.perf.mean === null ? '—' : `${(s.perf.mean * 100).toFixed(1)}% (${s.perf.n})`}</td>
+                <td className="py-2 pr-4">{s.perf.sd === null ? '—' : `${(s.perf.sd * 100).toFixed(1)}%p`}</td>
+                <td className="py-2 pr-4">{s.expected.mean === null ? '—' : s.expected.mean.toFixed(1)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">항목별 점수 분포</h2>
+        <p className="text-xs text-gray-500 mb-4">원점수 기준 통계이며 막대는 득점률 구간(0~10%, … 90~100%)별 학생 수입니다. 과목을 눌러 펼치세요.</p>
+        <div className="space-y-2">
+          {stats.splitStats.map((s) => {
+            const items = itemsBySubject.get(s.subjectId) ?? []
+            if (items.length === 0) return null
+            return (
+              <details key={s.subjectId} className="border border-gray-100 rounded-lg">
+                <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-800">
+                  {s.name} <span className="text-gray-400 font-normal">· 입력 {s.entered}명</span>
+                </summary>
+                <div className="overflow-x-auto px-4 pb-3">
+                  <table className="w-full text-sm whitespace-nowrap">
+                    <thead>
+                      <tr className="text-left text-gray-500 border-b border-gray-200">
+                        <th className="py-2 pr-3">항목</th><th className="pr-3">구분</th><th className="pr-3">만점</th>
+                        <th className="pr-3">n</th><th className="pr-3">평균</th><th className="pr-3">중앙값</th>
+                        <th className="pr-3">표준편차</th><th className="pr-3">최저~최고</th><th>분포</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item) => {
+                        const top = Math.max(1, ...item.histogram)
+                        return (
+                          <tr key={item.itemId} className="border-b border-gray-50">
+                            <td className="py-2 pr-3">{item.name}</td>
+                            <td className="pr-3 text-xs text-gray-500">{item.isExam ? '지필' : '수행'}</td>
+                            <td className="pr-3">{formatPoints(item.pointsMax)}</td>
+                            <td className="pr-3">{item.n}</td>
+                            <td className="pr-3 tabular-nums">{item.mean === null ? '—' : item.mean.toFixed(2)}</td>
+                            <td className="pr-3 tabular-nums">{item.median === null ? '—' : item.median.toFixed(2)}</td>
+                            <td className="pr-3 tabular-nums">{item.sd === null ? '—' : item.sd.toFixed(2)}</td>
+                            <td className="pr-3 tabular-nums">{item.min === null ? '—' : `${formatPoints(item.min)} ~ ${formatPoints(item.max ?? item.min)}`}</td>
+                            <td>
+                              <div className="flex items-end gap-px h-8" aria-label="득점률 분포">
+                                {item.histogram.map((count, index) => (
+                                  <div
+                                    key={index}
+                                    title={`${index * 10}~${(index + 1) * 10}%: ${count}명`}
+                                    className="w-2 bg-indigo-400 rounded-sm"
+                                    style={{ height: `${Math.max(count > 0 ? 12 : 3, (count / top) * 100)}%`, opacity: count > 0 ? 1 : 0.25 }}
+                                  />
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6 overflow-x-auto">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">과목별 상세 통계</h2>

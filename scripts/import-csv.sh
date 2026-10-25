@@ -27,6 +27,8 @@ done
   echo "COMMIT;"
 } | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q
 
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$(dirname "$0")/fix-data.sql"
+
 for t in "${TABLES[@]}"; do
   printf '%-26s %s행\n' "$t" "$(psql "$DATABASE_URL" -tAc "SELECT COUNT(*) FROM $t")"
 done

@@ -5,6 +5,8 @@ import { db } from '../../db/index.js'
 import { students, studentScores, studentSubjectResults, assessmentItems, subjects } from '../../db/schema.js'
 import { requireAuthMiddleware, requireAdminMiddleware } from '../middleware/identity'
 import { maximumScore, weightedMaximum, weightedScore, predictGrade, gradeForScore, averageGpa } from '../lib/grading'
+import { analyzeSubject, isExamItem } from '../lib/predict'
+import { describe, histogram } from '../lib/stats'
 
 async function getOrCreateStudent(user: { id: string; email: string; name?: string }) {
   const existing = await db
@@ -210,8 +212,60 @@ export const getAdminStats = createServerFn({ method: 'GET' })
       }
     })
 
+    const graded = allSubjects.filter((subject) => subject.gradingType !== 'pass_fail')
+
+    // 지필/수행 분석: 학생별 득점률을 구한 뒤 과목 단위로 평균
+    const splitStats = graded.map((subject) => {
+      const items = itemsBySubject.get(subject.id) ?? []
+      const analyses = allStudents.map((student) => analyzeSubject(items.map((item) => ({
+        ...item,
+        score: scoresByStudentItem.get(`${student.id}:${item.id}`) ?? null,
+      }))))
+      const examRates = analyses.flatMap((a) => (a.exam.rate === null ? [] : [a.exam.rate]))
+      const perfRates = analyses.flatMap((a) => (a.perf.rate === null ? [] : [a.perf.rate]))
+      const entered = analyses.filter((a) => a.filledMax > 0).length
+      const expectedScores = analyses.flatMap((a) => (a.expectedScore === null ? [] : [a.expectedScore]))
+      return {
+        subjectId: subject.id,
+        name: subject.name,
+        category: subject.category,
+        entered,
+        enteredRate: allStudents.length ? entered / allStudents.length : null,
+        exam: describe(examRates),
+        perf: describe(perfRates),
+        expected: describe(expectedScores),
+      }
+    })
+
+    // 항목별 분포
+    const itemStats = graded.flatMap((subject) =>
+      (itemsBySubject.get(subject.id) ?? [])
+        .filter((item) => (maximumScore(item) ?? 0) > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((item) => {
+          const max = maximumScore(item) as number
+          const values = allStudents.flatMap((student) => {
+            const value = scoresByStudentItem.get(`${student.id}:${item.id}`)
+            return value === undefined ? [] : [value]
+          })
+          return {
+            itemId: item.id,
+            subjectId: subject.id,
+            subjectName: subject.name,
+            name: item.name || '(이름 없음)',
+            isExam: isExamItem(item),
+            pointsMax: max,
+            weight: Number(item.weight),
+            ...describe(values),
+            histogram: histogram(values.map((value) => value / max)),
+          }
+        }),
+    )
+
     return {
       studentCount: allStudents.length,
+      splitStats,
+      itemStats,
       subjectStats,
       students: allStudents.map((student) => {
         const summary = averageGpa(allSubjects.map((subject) => ({
