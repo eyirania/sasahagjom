@@ -42,7 +42,7 @@ function AdminPage() {
       {
         label: '평균 예측 원점수 (100점 기준)',
         data: chartSubjects.map((subject) => subject.averagePredictedScore),
-        backgroundColor: '#000000',
+        backgroundColor: '#0096f7',
         borderRadius: 4,
       },
     ],
@@ -54,13 +54,13 @@ function AdminPage() {
       {
         label: '지필 평균 득점률 (%)',
         data: stats.splitStats.filter((s) => s.exam.n > 0 || s.perf.n > 0).map((s) => (s.exam.mean === null ? null : Number((s.exam.mean * 100).toFixed(1)))),
-        backgroundColor: '#000000',
+        backgroundColor: '#0096f7',
         borderRadius: 4,
       },
       {
         label: '수행 평균 득점률 (%)',
         data: stats.splitStats.filter((s) => s.exam.n > 0 || s.perf.n > 0).map((s) => (s.perf.mean === null ? null : Number((s.perf.mean * 100).toFixed(1)))),
-        backgroundColor: '#c90000',
+        backgroundColor: '#ff4000',
         borderRadius: 4,
       },
     ],
@@ -88,8 +88,8 @@ function AdminPage() {
       </div>
 
       {mounted && (
-        <div className="bg-white border-t-4 border-black p-6">
-          <h2 className="text-2xl font-extrabold tracking-tight mb-4">과목별 평균 예측 원점수</h2>
+        <div className="card p-6">
+          <h2 className="text-2xl font-medium tracking-tight mb-4">과목별 평균 예측 원점수</h2>
           <Bar
             data={chartData}
             options={{
@@ -102,8 +102,8 @@ function AdminPage() {
       )}
 
       {mounted && splitChartData.labels.length > 0 && (
-        <div className="bg-white border-t-4 border-black p-6">
-          <h2 className="text-2xl font-extrabold tracking-tight mb-1">과목별 지필 · 수행 평균 득점률</h2>
+        <div className="card p-6">
+          <h2 className="text-2xl font-medium tracking-tight mb-1">과목별 지필 · 수행 평균 득점률</h2>
           <p className="text-xs text-gray-500 mb-4">학생별 득점률(입력한 항목 기준)의 평균입니다. 해당 영역을 입력한 학생이 없으면 표시하지 않습니다.</p>
           <Bar
             data={splitChartData}
@@ -116,8 +116,8 @@ function AdminPage() {
         </div>
       )}
 
-      <div className="bg-white border-t-4 border-black p-6 overflow-x-auto">
-        <h2 className="text-2xl font-extrabold tracking-tight mb-1">지필 · 수행 분석 · 입력률</h2>
+      <div className="card p-6 overflow-x-auto">
+        <h2 className="text-2xl font-medium tracking-tight mb-1">지필 · 수행 분석 · 입력률</h2>
         <p className="text-xs text-gray-500 mb-4">득점률은 학생별 (입력 항목의 반영 점수 ÷ 반영 만점). 표본 수(n)가 작으면 해석에 주의하세요.</p>
         <table className="w-full text-sm whitespace-nowrap">
           <thead>
@@ -149,8 +149,8 @@ function AdminPage() {
         </table>
       </div>
 
-      <div className="bg-white border-t-4 border-black p-6">
-        <h2 className="text-2xl font-extrabold tracking-tight mb-1">항목별 점수 분포</h2>
+      <div className="card p-6">
+        <h2 className="text-2xl font-medium tracking-tight mb-1">항목별 점수 분포</h2>
         <p className="text-xs text-gray-500 mb-4">원점수 기준 통계이며 막대는 득점률 구간(0~10%, … 90~100%)별 학생 수입니다. 과목을 눌러 펼치세요.</p>
         <div className="space-y-2">
           {stats.splitStats.map((s) => {
@@ -207,8 +207,8 @@ function AdminPage() {
         </div>
       </div>
 
-      <div className="bg-white border-t-4 border-black p-6 overflow-x-auto">
-        <h2 className="text-2xl font-extrabold tracking-tight mb-4">과목별 상세 통계</h2>
+      <div className="card p-6 overflow-x-auto">
+        <h2 className="text-2xl font-medium tracking-tight mb-4">과목별 상세 통계</h2>
         <table className="w-full text-sm whitespace-nowrap">
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-200">
@@ -247,8 +247,8 @@ function AdminPage() {
         </table>
       </div>
 
-      <div className="bg-white border-t-4 border-black p-6 overflow-x-auto">
-        <h2 className="text-2xl font-extrabold tracking-tight mb-2">학생별 예측 평균 GPA</h2>
+      <div className="card p-6 overflow-x-auto">
+        <h2 className="text-2xl font-medium tracking-tight mb-2">학생별 예측 평균 GPA</h2>
         <p className="text-xs text-gray-500 mb-4">이수학점 가중평균 · P/F 제외 · 등급 과목의 F는 0점으로 포함 · 저장된 점수 기준</p>
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead><tr className="text-gray-500 border-b border-gray-200">

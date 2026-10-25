@@ -75,9 +75,9 @@ function SubjectsPage() {
         const missing = 100 - total
 
         return (
-          <section key={subject.id} className="bg-white border-t-4 border-black p-6">
+          <section key={subject.id} className="card p-6">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-              <h2 className="text-2xl font-extrabold tracking-tight">
+              <h2 className="text-2xl font-medium tracking-tight">
                 {subject.name}{' '}
                 <span className="text-sm font-normal text-gray-400">
                   ({subject.category} · {subject.credits}학점

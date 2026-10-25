@@ -39,10 +39,10 @@ function boundary(score: number) {
 }
 
 function badgeClass(grade: string | null) {
-  if (!grade) return 'bg-gray-100 text-gray-400'
-  if (grade.startsWith('A')) return 'plane-blue'
-  if (grade.startsWith('B')) return 'plane-yellow'
-  return 'plane-red'
+  if (!grade) return 'bg-white text-gray-400'
+  if (grade.startsWith('A')) return 'bg-black text-white'
+  if (grade.startsWith('B')) return 'bg-white text-black'
+  return 'bg-[#fff0ea] text-[#c23000]'
 }
 
 function GradesPage() {
@@ -216,22 +216,22 @@ function GradesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-5 lg:px-10 py-8 space-y-8">
-      <div className="border-b-4 border-black pb-6">
-        <h1 className="sw-display text-[clamp(40px,7vw,96px)] pb-3">내 성적 입력</h1>
+    <div className="max-w-[1280px] mx-auto px-5 lg:px-10 pt-12 pb-24 space-y-14">
+      <div>
+        <h1 className="sw-display text-[clamp(44px,7vw,96px)] pb-3">내 성적 입력</h1>
         <p className="text-[17px] max-w-3xl mt-2">
           지필(1·2회고사)은 100점 만점으로 입력하세요. 반영비율(0.3, 0.25 등)을 곱해 자동 환산됩니다. 엔터를 누르거나 다른 곳을 클릭하면 저장되며, 점수를 지우면 미입력으로 저장됩니다.
         </p>
       </div>
 
       {/* ============ HERO ============ */}
-      <section className="grid gap-x-8 gap-y-8 lg:grid-cols-12 border-b-4 border-black pb-8" aria-label="예측 평균 GPA">
+      <section className="grid gap-x-8 gap-y-8 lg:grid-cols-12" aria-label="예측 평균 GPA">
         <div className="lg:col-span-9">
           <h2 className="sw-label"><span className="sw-flag mr-2">예상</span>전체 평점 · 이수학점 가중평균</h2>
           <p className="mt-4 sw-display tabular-nums text-[clamp(64px,13vw,148px)] hero-gpa">
-            {fmtGpa(expected.gpa)} <span className="text-[clamp(16px,2vw,28px)] font-bold tracking-normal text-gray-400">/ 4.30</span>
+            {fmtGpa(expected.gpa)} <span className="text-[clamp(16px,2vw,28px)] font-medium tracking-normal text-gray-400">/ 4.30</span>
           </p>
-          <dl className="mt-6 grid grid-cols-3 border-t-4 border-black text-sm">
+          <dl className="mt-8 grid grid-cols-3 gap-3 text-sm">
             <Meta label="입력 항목 기준 평점" value={fmtGpa(confirmed.gpa)} />
             <Meta label="총 이수 학점" value={String(expected.credits)} />
             <Meta label="반영 과목" value={`${expected.subjectCount}과목`} />
@@ -242,20 +242,20 @@ function GradesPage() {
           </p>
         </div>
 
-        <div className="lg:col-span-3 plane-yellow border-4 border-black p-5 space-y-6 self-start">
+        <div className="lg:col-span-3 card p-7 space-y-6 self-start">
           <div>
             <h3 className="sw-label">시나리오 분석</h3>
             <ScenarioRow label="최악 (빈칸 0점)" value={fmtGpa(worst.gpa)} tone="text-red-600" />
             <ScenarioRow label="예상 (득점률 대입)" value={fmtGpa(expected.gpa)} tone="text-emerald-700" strong />
             <ScenarioRow label="최선 (빈칸 만점)" value={fmtGpa(best.gpa)} tone="text-indigo-600" />
           </div>
-          <div className="border-t-4 border-black pt-4">
+          <div className="border-t border-black/10 pt-4">
             <h3 className="sw-label">목표 평점</h3>
             <div className="mt-2 flex items-center gap-2">
               <input
                 type="number" min={0} max={4.3} step={0.01}
                 aria-label="목표 평점"
-                className="px-2 py-1 w-24 font-bold"
+                className="px-2 py-1 w-24 font-medium"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
               />
@@ -269,7 +269,7 @@ function GradesPage() {
       </section>
 
       {/* ============ 요약 통계 ============ */}
-      <section className="grid grid-cols-2 md:grid-cols-5 border-4 border-black" aria-label="요약 통계">
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3" aria-label="요약 통계">
         <Stat plane="plane-yellow" label="입력 완료 과목" value={String(complete.length)} sub={`/ ${graded.length} 과목`} />
         <Stat plane="bg-white" label="빈칸 남은 과목" value={String(pending.length)} sub="아직 채울 항목 있음" />
         <Stat
@@ -297,12 +297,12 @@ function GradesPage() {
       {groupAverages.length > 0 && (
         <section aria-label="과목군별 평균">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="sw-label"><span className="plane-yellow border-[3px] border-black px-2 py-0.5">과목군별 평균</span></h2>
+            <h2 className="text-2xl font-normal tracking-tight">과목군별 평균</h2>
             <span className="text-xs text-gray-400">예상 원점수 · 100점 기준</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 border-t-4 border-l-4 border-black">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {groupAverages.map((group) => (
-              <div key={group.name} className="p-4 border-b-4 border-r-4 border-black">
+              <div key={group.name} className="p-5 card">
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm font-medium text-gray-700">{group.name}</span>
                   <span className="font-semibold tabular-nums">{group.avg.toFixed(1)}</span>
@@ -316,7 +316,7 @@ function GradesPage() {
         </section>
       )}
 
-      <details className="border-y-4 border-black py-4">
+      <details className="card px-6 py-4">
         <summary className="cursor-pointer sw-label">원점수 등급 및 GPA 기준</summary>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -335,7 +335,7 @@ function GradesPage() {
       </details>
 
       {/* ============ 컨트롤 ============ */}
-      <section className="border-y-4 border-black py-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold" aria-label="보기 설정">
+      <section className="card px-6 py-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm" aria-label="보기 설정">
         <label className="flex items-center gap-2">
           정렬
           <select className="px-2 py-1" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
@@ -356,18 +356,18 @@ function GradesPage() {
         </label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={onlyEmpty} onChange={(e) => setOnlyEmpty(e.target.checked)} />빈칸 있는 과목만</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={hidePF} onChange={(e) => setHidePF(e.target.checked)} />P/F 숨기기</label>
-        <label className="flex items-center gap-1 text-[#c90000]">
+        <label className="flex items-center gap-1 text-[#c23000]">
           <input type="checkbox" checked={whatIf} onChange={(e) => setWhatIf(e.target.checked)} />가정 입력 (저장 안 됨)
         </label>
         <span className="ml-auto flex gap-2">
           <button
             type="button"
-            className="border-[3px] bg-white px-3 py-1"
+            className="btn-ghost !py-1.5 text-sm"
             onClick={() => setExpanded(Object.fromEntries(visible.map((v) => [v.subject.id, !allExpanded])))}
           >
             {allExpanded ? '전체 접기' : '전체 펼치기'}
           </button>
-          <button type="button" onClick={exportCsv} className="border-[3px] bg-white px-3 py-1">CSV 내보내기</button>
+          <button type="button" onClick={exportCsv} className="btn-ghost !py-1.5 text-sm">CSV 내보내기</button>
         </span>
       </section>
       {whatIf && (
@@ -377,7 +377,7 @@ function GradesPage() {
       )}
 
       {/* ============ 과목 카드 ============ */}
-      <section className="border-b-4 border-black" aria-label="과목">
+      <section className="grid gap-4" aria-label="과목">
       {visible.map(({ subject, analysis, usesHypo, remaining, grade }) => {
         const isOpen = !!expanded[subject.id]
         const isPF = subject.gradingType === 'pass_fail'
@@ -415,21 +415,21 @@ function GradesPage() {
         const badgeText = isPF ? (subject.myResult ?? '—') : grade?.grade ?? '—'
 
         return (
-        <article key={subject.id} className="border-t-4 border-black first:border-t-0">
+        <article key={subject.id} className="card overflow-hidden">
           <button
             type="button"
             aria-expanded={isOpen}
-            className="plain w-full text-left py-5 px-1 hover:bg-gray-100"
+            className="plain w-full text-left p-6 hover:bg-black/[0.03]"
             onClick={() => setExpanded((current) => ({ ...current, [subject.id]: !current[subject.id] }))}
           >
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="text-2xl font-extrabold tracking-tight truncate">
+                <h2 className="text-2xl font-medium tracking-tight truncate">
                   {subject.name}{' '}
                   <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-500">{subject.category}</span>
                 </h2>
               </div>
-              <span className={`circle w-12 h-12 shrink-0 flex items-center justify-center border-[3px] border-black text-base font-extrabold ${badgeClass(isPF ? (subject.myResult === 'P' ? 'A' : subject.myResult === 'F' ? 'F' : null) : grade?.grade ?? null)}`}>{badgeText}</span>
+              <span className={`circle w-11 h-11 shrink-0 flex items-center justify-center border border-black/10 text-base font-medium ${badgeClass(isPF ? (subject.myResult === 'P' ? 'A' : subject.myResult === 'F' ? 'F' : null) : grade?.grade ?? null)}`}>{badgeText}</span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden>
                 <path d="M3 6L8 11L13 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -447,13 +447,13 @@ function GradesPage() {
             )}
             {flags.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {flags.map((flag) => <span key={flag.text} className={`border-2 border-black px-2 py-0.5 text-[13px] font-bold ${flag.tone}`}>{flag.text}</span>)}
+                {flags.map((flag) => <span key={flag.text} className={`rounded-3xl px-2.5 py-0.5 text-[13px] font-medium ${flag.tone}`}>{flag.text}</span>)}
               </div>
             )}
           </button>
 
           {isOpen && (
-            <div className="border-t border-black py-5 px-1">
+            <div className="border-t border-black/10 p-6">
               {isPF ? (
                 <ResultInput
                   initialValue={subject.myResult}
@@ -554,9 +554,9 @@ function GradesPage() {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-r-4 border-black last:border-r-0 px-3 py-3 first:pl-0">
+    <div className="card px-5 py-4">
       <dt className="sw-label text-gray-500">{label}</dt>
-      <dd className="mt-1 text-3xl font-extrabold tracking-tight tabular-nums">{value}</dd>
+      <dd className="mt-1 text-3xl font-normal tracking-tight tabular-nums">{value}</dd>
     </div>
   )
 }
@@ -565,16 +565,16 @@ function ScenarioRow({ label, value, tone, strong }: { label: string; value: str
   return (
     <div className="mt-2 flex items-baseline justify-between text-sm">
       <span className="text-gray-600">{label}</span>
-      <span className={`tabular-nums ${tone} ${strong ? 'text-lg font-bold' : 'font-semibold'}`}>{value}</span>
+      <span className={`tabular-nums ${tone} ${strong ? 'text-lg font-medium' : 'font-semibold'}`}>{value}</span>
     </div>
   )
 }
 
 function Stat({ label, value, sub, small, plane }: { label: string; value: string; sub: string; small?: boolean; plane: string }) {
   return (
-    <div className={`p-4 border-r-4 border-b-4 border-black md:border-b-0 last:border-r-0 ${plane}`}>
+    <div className={`p-5 rounded-[18px] shadow-sm ${plane}`}>
       <p className="sw-label">{label}</p>
-      <p className={`mt-1 font-extrabold tracking-tight truncate ${small ? 'text-lg' : 'text-4xl tabular-nums'}`}>{value}</p>
+      <p className={`mt-1 font-medium tracking-tight truncate ${small ? 'text-lg' : 'text-4xl font-light tabular-nums'}`}>{value}</p>
       <p className="mt-0.5 text-sm font-medium truncate">{sub}</p>
     </div>
   )

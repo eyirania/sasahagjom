@@ -3,80 +3,83 @@
 
 /* Swiss Minimalist — 흰 바탕, 검은 잉크, 옅은 회색, 아주 작은 빨강 */
 :root {
-  --dp-color-ground: #f5f4ee;
-  --dp-color-ink: #000000;
-  --dp-color-accent: #ff0000;
-  --dp-color-field: #0000ff;
-  --dp-color-field-support: #ffff00;
-  --dp-color-quiet: #e8e8e8;
-  --dp-typography-face: "Noto Sans KR Variable", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
-  --dp-border-rule: 4px;
-  --dp-border-rule-compact: 3px;
+  --color-ink: #000000;
+  --color-parchment: #fdfdf7;
+  --color-warm-sand: #f5f2de;
+  --color-driftwood: #e7e3e1;
+  --color-sky-blue: #0096f7;
+  --color-signal-orange: #ff4000;
+  --dp-typography-face: "Noto Sans KR Variable", "Plus Jakarta Sans", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme {
   --font-sans: var(--dp-typography-face);
-  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0;
-  --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
-  --shadow-xs: 0 0 #0000; --shadow-sm: 0 0 #0000; --shadow-md: 0 0 #0000;
-  --shadow-lg: 0 0 #0000; --shadow-xl: 0 0 #0000;
+  --radius-sm: 6px; --radius-md: 9px; --radius-lg: 12px;
+  --radius-xl: 12px; --radius-2xl: 18px; --radius-3xl: 24px;
+  --shadow-xs: rgba(0,0,0,0.12) 0px 0.5px 1px 0px;
+  --shadow-sm: rgba(0,0,0,0.12) 0px 0.5px 2px 0px;
+  --shadow-md: rgba(0,0,0,0.08) 0px 2px 10px 0px;
+  --shadow-lg: rgba(0,0,0,0.08) 0px 2px 10px 0px;
+  --shadow-xl: rgba(0,0,0,0.08) 0px 2px 10px 0px;
 
-  --color-gray-50: #f5f4ee;  --color-gray-100: #e8e8e8; --color-gray-200: #cfcfcf;
-  --color-gray-300: #a3a3a3; --color-gray-400: #6b6b6b; --color-gray-500: #4a4a4a;
-  --color-gray-600: #333333; --color-gray-700: #222222; --color-gray-800: #111111;
+  /* 회색 → 따뜻한 중성색 */
+  --color-gray-50: #fdfdf7;  --color-gray-100: #f5f2de; --color-gray-200: #e7e3e1;
+  --color-gray-300: #d3d3d3; --color-gray-400: #999999; --color-gray-500: #666666;
+  --color-gray-600: #4d4d4d; --color-gray-700: #333333; --color-gray-800: #1a1a1a;
   --color-gray-900: #000000;
 
-  /* 강조(인디고·에메랄드·틸·파랑) → 바우하우스 파랑 */
-  --color-indigo-50: #e8e8e8; --color-indigo-100: #e8e8e8; --color-indigo-400: #6b6b6b;
-  --color-indigo-500: #0000ff; --color-indigo-600: #0000ff; --color-indigo-700: #0000ff;
-  --color-emerald-50: #e8e8e8; --color-emerald-500: #0000ff; --color-emerald-600: #0000ff;
-  --color-emerald-700: #0000ff; --color-emerald-900: #000000;
-  --color-teal-100: #ffff00; --color-teal-700: #000000;
-  --color-blue-50: #e8e8e8; --color-blue-600: #0000ff; --color-blue-700: #0000ff;
+  /* 강조(인디고·에메랄드·틸·파랑) → Sky Blue (글씨는 대비를 위해 조금 진하게) */
+  --color-indigo-50: #e6f4fe; --color-indigo-100: #e6f4fe; --color-indigo-400: #66bffa;
+  --color-indigo-500: #0096f7; --color-indigo-600: #0096f7; --color-indigo-700: #0072bd;
+  --color-emerald-50: #e6f4fe; --color-emerald-500: #0096f7; --color-emerald-600: #0096f7;
+  --color-emerald-700: #0072bd; --color-emerald-900: #000000;
+  --color-teal-100: #f5f2de; --color-teal-700: #000000;
+  --color-blue-50: #e6f4fe; --color-blue-600: #0096f7; --color-blue-700: #0072bd;
 
-  /* 주의·위험 → 빨강 (작은 글씨는 대비를 위해 조금 어둡게) */
-  --color-amber-50: #ffff00; --color-amber-100: #ffff00; --color-amber-600: #cc0000; --color-amber-700: #000000;
-  --color-orange-50: #ffff00; --color-orange-700: #000000;
-  --color-red-50: #ffff00; --color-red-100: #ffff00; --color-red-500: #cc0000;
-  --color-red-600: #cc0000; --color-red-700: #cc0000;
+  /* 주의·위험 → Signal Orange 계열 */
+  --color-amber-50: #f5f2de; --color-amber-100: #f5f2de; --color-amber-600: #b83200; --color-amber-700: #8a3b00;
+  --color-orange-50: #fff0ea; --color-orange-700: #b83200;
+  --color-red-50: #fff0ea; --color-red-100: #fff0ea; --color-red-500: #c23000;
+  --color-red-600: #c23000; --color-red-700: #c23000;
 }
 
-html { background: var(--dp-color-ground); }
+html { background: var(--color-parchment); }
 body {
   margin: 0;
-  background: var(--dp-color-ground);
-  color: var(--dp-color-ink);
+  background: var(--color-parchment);
+  color: var(--color-ink);
   font-family: var(--dp-typography-face);
   font-size: 16px;
   line-height: 1.5;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 code { font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace; }
 
-/* 모서리는 직각(원은 .circle 에만), 부드러운 그림자 없음, 즉각 반응 */
-*, *::before, *::after { transition: none !important; animation: none !important; }
-[class*="rounded"] { border-radius: 0 !important; }
-[class*="shadow"] { box-shadow: none !important; }
-.circle { border-radius: 50% !important; }
-.hard-shadow { box-shadow: 6px 6px 0 #000 !important; }
-.hard-shadow:active { box-shadow: 2px 2px 0 #000 !important; transform: translate(4px, 4px); }
+:focus-visible { outline: 2px solid #0096f7; outline-offset: 2px; }
 
-:focus-visible { outline: 4px solid #000; outline-offset: 2px; box-shadow: 0 0 0 7px #fff; }
-
-button, select, input { border-radius: 0; }
+/* 입력창/버튼: 12px 둥근 모서리, 은은한 테두리 */
 input[type="number"], input[type="text"], select {
-  border: var(--dp-border-rule-compact) solid #000 !important;
-  background: #fff;
+  background: rgba(0,0,0,0.03);
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  border-radius: 12px;
 }
-button:not([aria-expanded]):not(.plain) { border-color: #000 !important; }
-button:not([aria-expanded]):not(.plain):hover { background: #000 !important; color: #fff !important; }
-input[type="checkbox"] { accent-color: #000; width: 1.1rem; height: 1.1rem; }
+button:not([aria-expanded]):not(.plain), select { border-radius: 12px; }
+button:not([aria-expanded]):not(.plain):not(.btn-primary):hover { background: #e7e3e1; }
+input[type="checkbox"] { accent-color: #0096f7; width: 1.05rem; height: 1.05rem; }
 
-.sw-label { font-size: 15px; letter-spacing: 0.02em; font-weight: 650; }
-.sw-display { font-weight: 800; letter-spacing: -0.045em; line-height: 0.95; word-break: keep-all; }
-.sw-flag { background: var(--dp-color-accent); color: #000; font-size: 15px; font-weight: 750; padding: 2px 8px; border: 3px solid #000; }
-.plane-red { background: #ff0000; color: #000; }
-.plane-blue { background: #0000ff; color: #fff; }
-.plane-yellow { background: #ffff00; color: #000; }
+.btn-primary { background: #0096f7; color: #fff; border-radius: 12px; font-weight: 500; padding: 14px 22px; }
+.btn-primary:hover { background: #0085dc; }
+.btn-ghost { background: rgba(0,0,0,0.04); border-radius: 24px; padding: 8px 18px; }
+.btn-ghost:hover { background: rgba(0,0,0,0.08); }
+
+.sw-label { font-size: 14px; letter-spacing: -0.02em; font-weight: 500; color: #666; }
+.sw-display { font-weight: 300; letter-spacing: -0.05em; line-height: 0.96; word-break: keep-all; }
+.sw-flag { background: #000; color: #fff; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 24px; }
+.plane-yellow { background: #f5f2de; color: #000; }
+.plane-blue { background: #e6f4fe; color: #000; }
+.plane-red { background: #fff0ea; color: #000; }
+.circle { border-radius: 50%; }
+.card { background: #f5f2de; border-radius: 18px; box-shadow: rgba(0,0,0,0.12) 0px 0.5px 2px 0px; }
 table { border-collapse: collapse; }

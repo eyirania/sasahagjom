@@ -20,23 +20,23 @@ function LoginPage() {
   }
 
   return (
-    <section className="grid grid-cols-1 lg:grid-cols-12 border-b-4 border-black">
-      <div className="lg:col-span-8 px-5 lg:px-10 py-12 lg:py-20 lg:border-r-4 border-black">
-        <h1 className="sw-display text-[clamp(56px,10vw,148px)] lg:ml-[max(0px,calc((100vw-80rem)/2))]">로그인</h1>
-      </div>
-      <div className="lg:col-span-4 plane-red px-5 lg:px-10 py-12 lg:py-20 flex flex-col justify-center gap-5">
-        <p className="text-[17px] font-semibold">
-          학교 이메일(<span className="font-mono">@sasa.hs.kr</span>)로만 로그인할 수 있습니다.
-        </p>
-        {error && <p role="alert" className="bg-white border-[3px] border-black px-3 py-2 text-[15px] font-bold !text-[#cc0000]">{error}</p>}
-        <button
-          onClick={() => { window.location.href = `${import.meta.env.BASE_URL}auth/google` }}
-          className="hard-shadow plane-blue border-4 border-black px-6 py-4 font-extrabold text-lg hover:!bg-white hover:!text-black"
-        >
-          Google로 로그인 →
-        </button>
-        <p className="text-sm font-medium">@sasa.hs.kr 이외의 이메일로 로그인하면 접근이 거부됩니다.</p>
-      </div>
-    </section>
+    <div className="max-w-[1280px] mx-auto px-5 lg:px-10">
+      <section className="pt-20 pb-24 lg:pt-32 grid lg:grid-cols-12 gap-10">
+        <h1 className="sw-display text-[clamp(56px,9vw,128px)] lg:col-span-7">로그인</h1>
+        <div className="lg:col-span-5 card p-9 self-end space-y-5">
+          <p className="text-[18px] leading-snug">
+            학교 이메일(<span className="font-mono">@sasa.hs.kr</span>)로만 로그인할 수 있습니다.
+          </p>
+          {error && <p role="alert" className="rounded-xl bg-[#fff0ea] px-4 py-3 text-[15px] text-[#c23000]">{error}</p>}
+          <button
+            onClick={() => { window.location.href = `${import.meta.env.BASE_URL}auth/google` }}
+            className="btn-primary w-full"
+          >
+            Google로 로그인
+          </button>
+          <p className="text-sm text-gray-500">@sasa.hs.kr 이외의 이메일로 로그인하면 접근이 거부됩니다.</p>
+        </div>
+      </section>
+    </div>
   )
 }
