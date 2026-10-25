@@ -1,5 +1,6 @@
 @import "tailwindcss" source("../");
 @import "@fontsource-variable/noto-sans-kr";
+@import "@fontsource-variable/hahmlet";
 
 /* Swiss Minimalist — 흰 바탕, 검은 잉크, 옅은 회색, 아주 작은 빨강 */
 :root {
@@ -83,3 +84,8 @@ input[type="checkbox"] { accent-color: #0096f7; width: 1.05rem; height: 1.05rem;
 .circle { border-radius: 50%; }
 .card { background: #f5f2de; border-radius: 18px; box-shadow: rgba(0,0,0,0.12) 0px 0.5px 2px 0px; }
 table { border-collapse: collapse; }
+
+/* 제목·큰 숫자는 함초롬 대신 Hahmlet(명조 계열), 본문은 Noto Sans KR */
+h1, h2, .sw-display { font-family: "Hahmlet Variable", "Noto Serif KR", serif; }
+.sw-display { font-weight: 300; letter-spacing: -0.04em; }
+h2 { font-weight: 400; letter-spacing: -0.02em; }
