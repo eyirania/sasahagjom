@@ -282,6 +282,7 @@ function GradesPage() {
                 <th className="py-2 pr-2">원점수 만점</th>
                 <th className="py-2 pr-2">반영비율</th>
                 <th className="py-2 pr-2">실제 받은 점수</th>
+                <th className="py-2 pr-2">반영 점수</th>
               </tr>
             </thead>
             <tbody>
@@ -305,7 +306,7 @@ function GradesPage() {
                 />
               ))}
               {subject.items.length === 0 && (
-                <tr><td colSpan={5} className="py-4 text-gray-500">평가 항목이 아직 전달되지 않았습니다.</td></tr>
+                <tr><td colSpan={6} className="py-4 text-gray-500">평가 항목이 아직 전달되지 않았습니다.</td></tr>
               )}
             </tbody>
           </table>
@@ -419,6 +420,8 @@ function ScoreRow({
   const [error, setError] = useState('')
   const pending = useRef(false)
   const savedScore = useRef(item.myScore === null ? null : Number(item.myScore))
+  const typed = value.trim() === '' ? null : Number(value)
+  const converted = typed !== null && Number.isFinite(typed) ? typed * Number(item.weight) : null
 
   async function persist() {
     const score = value.trim() === '' ? null : Number(value)
@@ -485,6 +488,9 @@ function ScoreRow({
           <span className="text-xs text-gray-500" role="status">{saving ? '저장 중' : ''}</span>
           {error && <span className="text-red-500 text-xs">{error}</span>}
         </div>
+      </td>
+      <td className="py-2 pr-2 tabular-nums text-gray-700">
+        {maxScore === null ? '' : `${converted === null ? '—' : formatPoints(converted)} / ${formatPoints(maxScore * Number(item.weight))}`}
       </td>
     </tr>
   )
