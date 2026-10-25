@@ -14,6 +14,7 @@ import { getServerUser } from '../lib/auth'
 import { isAdmin } from '../lib/auth'
 import { getAdminStats } from '../server/scores.functions'
 import { formatPoints } from '../lib/grading'
+import { DatabaseExport } from '../components/DatabaseExport'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -62,6 +63,8 @@ function AdminPage() {
           빈칸·만점 미정 항목·P/F 과목은 예측에서 제외하며, 예측치는 최종 성적과 다를 수 있습니다.
         </p>
       </div>
+
+      <DatabaseExport />
 
       {mounted && (
         <div className="bg-white rounded-xl shadow-sm p-6">
