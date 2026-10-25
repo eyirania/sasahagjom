@@ -36,9 +36,9 @@ export function DatabaseExport() {
     <section className="bg-white rounded-xl shadow-sm p-6" aria-labelledby="database-export-title">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 id="database-export-title" className="text-lg font-semibold text-gray-900">운영 DB CSV 내보내기</h2>
+          <h2 id="database-export-title" className="text-lg font-semibold text-gray-900">DB CSV 내보내기</h2>
           <p className="text-sm text-gray-500 mt-1">5개 테이블의 모든 행과 컬럼을 같은 시점 기준으로 내보냅니다.</p>
-          <p className="text-xs text-gray-500 mt-2">운영 사이트에서 관리자만 사용할 수 있습니다. 파일은 공개 저장 없이 이 브라우저에서 다운로드합니다.</p>
+          <p className="text-xs text-gray-500 mt-2">운영·미리보기 사이트에서 관리자가 사용할 수 있습니다. 현재 접속한 사이트에 연결된 DB를 내보내며, 파일은 이 브라우저에서 다운로드합니다.</p>
         </div>
         <button type="button" onClick={prepare} disabled={pending}
           className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900">
@@ -48,6 +48,7 @@ export function DatabaseExport() {
       <div aria-live="polite" aria-busy={pending}>
         {pending && <p className="text-sm text-gray-500 mt-4">전체 데이터를 읽고 있습니다.</p>}
         {error && <p role="alert" className="text-sm text-red-700 mt-4">{error}</p>}
+        {result && <p className="text-sm text-gray-600 mt-4">데이터 출처: {result.environment}</p>}
         {links.length > 0 && (
           <div className="overflow-x-auto mt-5">
             <table className="w-full text-sm text-left">

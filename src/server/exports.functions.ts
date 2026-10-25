@@ -12,11 +12,6 @@ export const exportDatabaseCsv = createServerFn({ method: 'POST' })
   .handler(async () => {
     setResponseHeader('Cache-Control', 'private, no-store')
     setResponseHeader('Netlify-CDN-Cache-Control', 'no-store')
-    // A preview must never be mistaken for an export of the live student data.
-    if (process.env.CONTEXT !== 'production') {
-      throw new Error('운영 DB 내보내기는 운영 사이트에서만 사용할 수 있습니다.')
-    }
-
     const client = await getDatabase().pool.connect()
     try {
       await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
@@ -43,10 +38,10 @@ export const exportDatabaseCsv = createServerFn({ method: 'POST' })
         })
       }
       await client.query('COMMIT')
-      return { files }
+      return { files, environment: process.env.CONTEXT === 'production' ? '운영 사이트 DB' : '현재 미리보기·개발 사이트 DB' }
     } catch {
       await client.query('ROLLBACK').catch(() => {})
-      throw new Error('CSV 내보내기에 실패했습니다. 운영 사이트의 관리자 로그인 상태를 확인한 후 다시 시도하세요.')
+      throw new Error('CSV 내보내기에 실패했습니다. 현재 사이트의 DB 연결 상태를 확인한 후 다시 시도하세요.')
     } finally {
       client.release()
     }
