@@ -1,15 +1,80 @@
 @import "tailwindcss" source("../");
+@import "@fontsource-variable/host-grotesk";
 
+/* Swiss Minimalist — 흰 바탕, 검은 잉크, 옅은 회색, 아주 작은 빨강 */
+:root {
+  --dp-color-ground: #ffffff;
+  --dp-color-ink: #000000;
+  --dp-color-surface: #f0f0f0;
+  --dp-color-accent: #c90000;
+  --dp-typography-face: "Host Grotesk Variable", "SwissMinimalistHost", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+  --dp-border-rule: 2px;
+  --dp-gutter: clamp(20px, 3.3333vw, 64px);
+}
+
+@theme {
+  --font-sans: var(--dp-typography-face);
+  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0;
+  --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
+  --shadow-xs: 0 0 #0000; --shadow-sm: 0 0 #0000; --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000; --shadow-xl: 0 0 #0000;
+
+  /* 회색 → 무채색 */
+  --color-gray-50: #f0f0f0;  --color-gray-100: #f0f0f0; --color-gray-200: #d4d4d4;
+  --color-gray-300: #a3a3a3; --color-gray-400: #737373; --color-gray-500: #525252;
+  --color-gray-600: #404040; --color-gray-700: #262626; --color-gray-800: #111111;
+  --color-gray-900: #000000;
+
+  /* 강조색(인디고·에메랄드·틸·파랑) → 검정 잉크 */
+  --color-indigo-50: #f0f0f0; --color-indigo-100: #e0e0e0; --color-indigo-400: #737373;
+  --color-indigo-500: #000000; --color-indigo-600: #000000; --color-indigo-700: #000000;
+  --color-emerald-50: #f0f0f0; --color-emerald-500: #000000; --color-emerald-600: #000000;
+  --color-emerald-700: #000000; --color-emerald-900: #000000;
+  --color-teal-100: #e0e0e0; --color-teal-700: #000000;
+  --color-blue-50: #f0f0f0; --color-blue-600: #000000; --color-blue-700: #000000;
+
+  /* 주의·위험 → 빨강 신호 */
+  --color-amber-50: #f0f0f0; --color-amber-100: #e0e0e0; --color-amber-600: #c90000; --color-amber-700: #c90000;
+  --color-orange-50: #f0f0f0; --color-orange-700: #c90000;
+  --color-red-50: #f0f0f0; --color-red-100: #f0f0f0; --color-red-500: #c90000;
+  --color-red-600: #c90000; --color-red-700: #c90000;
+}
+
+html { background: var(--dp-color-ground); }
 body {
-  @apply m-0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
+  margin: 0;
+  background: var(--dp-color-ground);
+  color: var(--dp-color-ink);
+  font-family: var(--dp-typography-face);
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+code { font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace; }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
+/* 모서리 직각, 그림자·움직임 없음 */
+*, *::before, *::after { transition: none !important; animation: none !important; }
+[class*="rounded"] { border-radius: 0 !important; }
+[class*="shadow"] { box-shadow: none !important; }
+
+/* 포커스는 항상 선명하게 */
+:focus-visible { outline: 3px solid var(--dp-color-ink); outline-offset: 2px; }
+.on-black :focus-visible { outline-color: #fff; }
+
+/* 컨트롤: 사각형, 검정/흰색 상태 */
+button, select, input { border-radius: 0; }
+input[type="number"], input[type="text"], select {
+  border: var(--dp-border-rule) solid #000 !important;
+  background: #fff;
 }
+button:not([aria-expanded]):not(.plain) { border-color: #000 !important; }
+button:not([aria-expanded]):not(.plain):hover { background: #000 !important; color: #fff !important; }
+input[type="checkbox"] { accent-color: #000; width: 1rem; height: 1rem; }
+
+.sw-label { font-size: 12px; letter-spacing: 0.12em; font-weight: 700; text-transform: uppercase; }
+.sw-display {
+  font-weight: 750; letter-spacing: -0.04em; line-height: 0.9;
+}
+.sw-flag { background: var(--dp-color-accent); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; padding: 2px 6px; }
+table { border-collapse: collapse; }

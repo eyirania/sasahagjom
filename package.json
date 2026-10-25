@@ -9,6 +9,7 @@
     "migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@fontsource-variable/host-grotesk": "^5.3.0",
     "@tailwindcss/vite": "4.2.2",
     "@tanstack/react-router": "1.168.22",
     "@tanstack/react-start": "1.167.41",

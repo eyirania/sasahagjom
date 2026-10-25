@@ -20,23 +20,25 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="max-w-sm w-full bg-white rounded-xl shadow-sm p-8 text-center">
-        <h1 className="text-xl font-bold text-gray-900 mb-2">로그인</h1>
-        <p className="text-sm text-gray-500 mb-6">
-          학교 이메일(<span className="font-mono">@sasa.hs.kr</span>)로만 로그인할 수 있습니다.
-        </p>
-        {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-        <button
-          onClick={() => { window.location.href = `${import.meta.env.BASE_URL}auth/google` }}
-          className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-lg py-2.5 font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Google로 로그인
-        </button>
-        <p className="text-xs text-gray-400 mt-4">
-          @sasa.hs.kr 이외의 이메일로 로그인하면 접근이 거부됩니다.
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto px-5 lg:px-10">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-8 py-12 lg:py-20 border-b-2 border-black">
+        <div className="lg:col-span-9">
+          <h1 className="sw-display text-[clamp(52px,10vw,148px)]">로그인</h1>
+        </div>
+        <div className="lg:col-span-3 flex flex-col justify-end gap-4">
+          <p className="text-[17px]">
+            학교 이메일(<span className="font-mono">@sasa.hs.kr</span>)로만 로그인할 수 있습니다.
+          </p>
+          {error && <p role="alert" className="text-sm font-bold text-red-600">{error}</p>}
+          <button
+            onClick={() => { window.location.href = `${import.meta.env.BASE_URL}auth/google` }}
+            className="w-full bg-black text-white font-bold px-5 py-3 border-2 border-black hover:!bg-white hover:!text-black"
+          >
+            Google로 로그인
+          </button>
+          <p className="text-xs text-gray-500">@sasa.hs.kr 이외의 이메일로 로그인하면 접근이 거부됩니다.</p>
+        </div>
+      </section>
     </div>
   )
 }

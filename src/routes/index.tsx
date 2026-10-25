@@ -7,41 +7,28 @@ export const Route = createFileRoute('/')({
 
 function Home() {
   const { user, ready } = useIdentity()
+  const btn = 'inline-block font-bold px-5 py-3 border-2 border-black'
 
   return (
-    <div className="min-h-[70vh] bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          세종과학예술영재학교 1학년 2학기 학점 관리
-        </h1>
-        <p className="text-gray-600 mb-8">
-          과목별 평가 배점을 확인하고, 학교 이메일(@sasa.hs.kr)로 로그인해 본인의 성적을 기록할 수 있습니다.
-        </p>
-        <div className="flex justify-center gap-4">
-          <Link
-            to="/subjects"
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700"
-          >
-            평가 배점표 보기
-          </Link>
-          {ready && !user && (
-            <Link
-              to="/login"
-              className="border border-gray-300 px-5 py-2.5 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-            >
-              로그인
-            </Link>
-          )}
-          {ready && user && (
-            <Link
-              to="/grades"
-              className="border border-gray-300 px-5 py-2.5 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-            >
-              내 성적 입력
-            </Link>
-          )}
+    <div className="max-w-7xl mx-auto px-5 lg:px-10">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-10 py-12 lg:py-20 border-b-2 border-black">
+        <div className="lg:col-span-9">
+          <p className="sw-label mb-6"><span className="sw-flag mr-2">2026</span>1학년 2학기</p>
+          <h1 className="sw-display text-[clamp(52px,10vw,148px)]">
+            학점 관리
+          </h1>
         </div>
-      </div>
+        <div className="lg:col-span-3 flex flex-col justify-end gap-6">
+          <p className="text-[17px] leading-relaxed">
+            과목별 평가 배점을 확인하고, 학교 이메일(@sasa.hs.kr)로 로그인해 본인의 성적을 기록할 수 있습니다.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link to="/subjects" className={`${btn} bg-black text-white hover:bg-white hover:text-black`}>평가 배점표 보기</Link>
+            {ready && !user && <Link to="/login" className={`${btn} hover:bg-black hover:text-white`}>로그인</Link>}
+            {ready && user && <Link to="/grades" className={`${btn} hover:bg-black hover:text-white`}>내 성적 입력</Link>}
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

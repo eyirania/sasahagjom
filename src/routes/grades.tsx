@@ -40,10 +40,9 @@ function boundary(score: number) {
 
 function badgeClass(grade: string | null) {
   if (!grade) return 'bg-gray-100 text-gray-400'
-  if (grade.startsWith('A')) return 'bg-indigo-100 text-indigo-700'
-  if (grade.startsWith('B')) return 'bg-teal-100 text-teal-700'
-  if (grade.startsWith('C')) return 'bg-amber-100 text-amber-700'
-  return 'bg-red-100 text-red-700'
+  if (grade.startsWith('A')) return 'bg-black text-white'
+  if (grade.startsWith('B')) return 'bg-gray-100 text-black'
+  return 'bg-[#c90000] text-white'
 }
 
 function GradesPage() {
@@ -217,22 +216,22 @@ function GradesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">내 성적 입력</h1>
-        <p className="text-sm text-gray-500 mt-1">
+    <div className="max-w-7xl mx-auto px-5 lg:px-10 py-8 space-y-8">
+      <div className="border-b-2 border-black pb-6">
+        <h1 className="sw-display text-[clamp(40px,7vw,96px)] pb-3">내 성적 입력</h1>
+        <p className="text-[17px] max-w-3xl mt-2">
           지필(1·2회고사)은 100점 만점으로 입력하세요. 반영비율(0.3, 0.25 등)을 곱해 자동 환산됩니다. 엔터를 누르거나 다른 곳을 클릭하면 저장되며, 점수를 지우면 미입력으로 저장됩니다.
         </p>
       </div>
 
       {/* ============ HERO ============ */}
-      <section className="grid gap-4 lg:grid-cols-3" aria-label="예측 평균 GPA">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border-l-4 border-emerald-600">
-          <h2 className="text-sm font-semibold text-gray-500">예상 전체 평점 · 이수학점 가중평균</h2>
-          <p className="mt-2 text-5xl font-bold text-gray-900 tabular-nums hero-gpa">
-            {fmtGpa(expected.gpa)} <span className="text-lg font-normal text-gray-400">/ 4.30</span>
+      <section className="grid gap-x-8 gap-y-8 lg:grid-cols-12 border-b-2 border-black pb-8" aria-label="예측 평균 GPA">
+        <div className="lg:col-span-9">
+          <h2 className="sw-label"><span className="sw-flag mr-2">예상</span>전체 평점 · 이수학점 가중평균</h2>
+          <p className="mt-4 sw-display tabular-nums text-[clamp(64px,13vw,148px)] hero-gpa">
+            {fmtGpa(expected.gpa)} <span className="text-[clamp(16px,2vw,28px)] font-bold tracking-normal text-gray-400">/ 4.30</span>
           </p>
-          <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+          <dl className="mt-6 grid grid-cols-3 border-t-2 border-black text-sm">
             <Meta label="입력 항목 기준 평점" value={fmtGpa(confirmed.gpa)} />
             <Meta label="총 이수 학점" value={String(expected.credits)} />
             <Meta label="반영 과목" value={`${expected.subjectCount}과목`} />
@@ -243,20 +242,20 @@ function GradesPage() {
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700">시나리오 분석</h3>
+        <div className="lg:col-span-3 space-y-6">
+          <div className="border-t-2 border-black pt-3">
+            <h3 className="sw-label">시나리오 분석</h3>
             <ScenarioRow label="최악 (빈칸 0점)" value={fmtGpa(worst.gpa)} tone="text-red-600" />
             <ScenarioRow label="예상 (득점률 대입)" value={fmtGpa(expected.gpa)} tone="text-emerald-700" strong />
             <ScenarioRow label="최선 (빈칸 만점)" value={fmtGpa(best.gpa)} tone="text-indigo-600" />
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-5">
-            <h3 className="text-sm font-semibold text-gray-700">목표 평점</h3>
+          <div className="border-t-2 border-black pt-3">
+            <h3 className="sw-label">목표 평점</h3>
             <div className="mt-2 flex items-center gap-2">
               <input
                 type="number" min={0} max={4.3} step={0.01}
                 aria-label="목표 평점"
-                className="border rounded px-2 py-1 w-24"
+                className="px-2 py-1 w-24 font-bold"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
               />
@@ -270,7 +269,7 @@ function GradesPage() {
       </section>
 
       {/* ============ 요약 통계 ============ */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3" aria-label="요약 통계">
+      <section className="grid grid-cols-2 md:grid-cols-5 border-b-2 border-black" aria-label="요약 통계">
         <Stat label="입력 완료 과목" value={String(complete.length)} sub={`/ ${graded.length} 과목`} />
         <Stat label="빈칸 남은 과목" value={String(pending.length)} sub="아직 채울 항목 있음" />
         <Stat
@@ -296,18 +295,18 @@ function GradesPage() {
       {groupAverages.length > 0 && (
         <section aria-label="과목군별 평균">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">과목군별 평균</h2>
+            <h2 className="sw-label">과목군별 평균</h2>
             <span className="text-xs text-gray-400">예상 원점수 · 100점 기준</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 border-t-2 border-black">
             {groupAverages.map((group) => (
-              <div key={group.name} className="bg-white rounded-xl shadow-sm p-4">
+              <div key={group.name} className="p-4 border-b border-r border-black">
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm font-medium text-gray-700">{group.name}</span>
                   <span className="font-semibold tabular-nums">{group.avg.toFixed(1)}</span>
                 </div>
-                <div className="mt-2 h-1.5 rounded bg-gray-100 overflow-hidden">
-                  <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, Math.max(0, group.avg))}%` }} />
+                <div className="mt-2 h-2 bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-black" style={{ width: `${Math.min(100, Math.max(0, group.avg))}%` }} />
                 </div>
               </div>
             ))}
@@ -315,8 +314,8 @@ function GradesPage() {
         </section>
       )}
 
-      <details className="bg-white rounded-xl shadow-sm p-5">
-        <summary className="cursor-pointer text-sm font-semibold text-gray-700">원점수 등급 및 GPA 기준</summary>
+      <details className="border-y-2 border-black py-4">
+        <summary className="cursor-pointer sw-label">원점수 등급 및 GPA 기준</summary>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead><tr className="text-gray-500 border-b border-gray-200"><th className="py-2">등급</th><th>원점수 기준</th><th>GPA</th></tr></thead>
@@ -334,10 +333,10 @@ function GradesPage() {
       </details>
 
       {/* ============ 컨트롤 ============ */}
-      <section className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm" aria-label="보기 설정">
+      <section className="border-y-2 border-black py-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-bold" aria-label="보기 설정">
         <label className="flex items-center gap-2">
           정렬
-          <select className="border rounded px-2 py-1" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+          <select className="px-2 py-1" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
             <option value="default">기본순</option>
             <option value="name">과목명순</option>
             <option value="score-desc">예상 점수 ↓</option>
@@ -348,25 +347,25 @@ function GradesPage() {
         </label>
         <label className="flex items-center gap-2">
           과목군
-          <select className="border rounded px-2 py-1" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select className="px-2 py-1" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="all">전체</option>
             {categories.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={onlyEmpty} onChange={(e) => setOnlyEmpty(e.target.checked)} />빈칸 있는 과목만</label>
         <label className="flex items-center gap-1"><input type="checkbox" checked={hidePF} onChange={(e) => setHidePF(e.target.checked)} />P/F 숨기기</label>
-        <label className="flex items-center gap-1 font-medium text-indigo-700">
+        <label className="flex items-center gap-1 text-[#c90000]">
           <input type="checkbox" checked={whatIf} onChange={(e) => setWhatIf(e.target.checked)} />가정 입력 (저장 안 됨)
         </label>
         <span className="ml-auto flex gap-2">
           <button
             type="button"
-            className="border rounded px-3 py-1 hover:bg-gray-50"
+            className="border-2 px-3 py-1"
             onClick={() => setExpanded(Object.fromEntries(visible.map((v) => [v.subject.id, !allExpanded])))}
           >
             {allExpanded ? '전체 접기' : '전체 펼치기'}
           </button>
-          <button type="button" onClick={exportCsv} className="border rounded px-3 py-1 hover:bg-gray-50">CSV 내보내기</button>
+          <button type="button" onClick={exportCsv} className="border-2 px-3 py-1">CSV 내보내기</button>
         </span>
       </section>
       {whatIf && (
@@ -376,7 +375,7 @@ function GradesPage() {
       )}
 
       {/* ============ 과목 카드 ============ */}
-      <section className="grid gap-4" aria-label="과목">
+      <section className="border-b-2 border-black" aria-label="과목">
       {visible.map(({ subject, analysis, usesHypo, remaining, grade }) => {
         const isOpen = !!expanded[subject.id]
         const isPF = subject.gradingType === 'pass_fail'
@@ -414,21 +413,21 @@ function GradesPage() {
         const badgeText = isPF ? (subject.myResult ?? '—') : grade?.grade ?? '—'
 
         return (
-        <article key={subject.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <article key={subject.id} className="border-t-2 border-black first:border-t-0">
           <button
             type="button"
             aria-expanded={isOpen}
-            className="w-full text-left p-5 hover:bg-gray-50/60"
+            className="plain w-full text-left py-5 px-1 hover:bg-gray-100"
             onClick={() => setExpanded((current) => ({ ...current, [subject.id]: !current[subject.id] }))}
           >
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-gray-900 truncate">
+                <h2 className="text-2xl font-extrabold tracking-tight truncate">
                   {subject.name}{' '}
                   <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-500">{subject.category}</span>
                 </h2>
               </div>
-              <span className={`rounded-lg px-3 py-1 text-sm font-bold ${badgeClass(isPF ? (subject.myResult === 'P' ? 'A' : subject.myResult === 'F' ? 'F' : null) : grade?.grade ?? null)}`}>{badgeText}</span>
+              <span className={`px-3 py-1 text-sm font-extrabold ${badgeClass(isPF ? (subject.myResult === 'P' ? 'A' : subject.myResult === 'F' ? 'F' : null) : grade?.grade ?? null)}`}>{badgeText}</span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden>
                 <path d="M3 6L8 11L13 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -452,7 +451,7 @@ function GradesPage() {
           </button>
 
           {isOpen && (
-            <div className="border-t border-gray-100 p-5">
+            <div className="border-t border-black py-5 px-1">
               {isPF ? (
                 <ResultInput
                   initialValue={subject.myResult}
@@ -523,7 +522,7 @@ function GradesPage() {
                     <label className="flex items-center gap-2">
                       목표 등급
                       <select
-                        className="border rounded px-2 py-1"
+                        className="px-2 py-1"
                         value={targetCut}
                         onChange={(e) => setTargets((current) => ({ ...current, [subject.id]: e.target.value }))}
                       >
@@ -553,9 +552,9 @@ function GradesPage() {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 px-3 py-2">
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="mt-0.5 font-semibold tabular-nums">{value}</dd>
+    <div className="border-r-2 border-black last:border-r-0 px-3 py-3 first:pl-0">
+      <dt className="sw-label text-gray-500">{label}</dt>
+      <dd className="mt-1 text-2xl font-extrabold tracking-tight tabular-nums">{value}</dd>
     </div>
   )
 }
@@ -571,9 +570,9 @@ function ScenarioRow({ label, value, tone, strong }: { label: string; value: str
 
 function Stat({ label, value, sub, small }: { label: string; value: string; sub: string; small?: boolean }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-1 font-bold text-gray-900 truncate ${small ? 'text-base' : 'text-2xl tabular-nums'}`}>{value}</p>
+    <div className="p-4 border-r border-b border-black md:border-b-0 last:border-r-0">
+      <p className="sw-label text-gray-500">{label}</p>
+      <p className={`mt-1 font-extrabold tracking-tight truncate ${small ? 'text-lg' : 'text-4xl tabular-nums'}`}>{value}</p>
       <p className="mt-0.5 text-xs text-gray-400 truncate">{sub}</p>
     </div>
   )

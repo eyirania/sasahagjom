@@ -57,9 +57,9 @@ function SubjectsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <div className="max-w-7xl mx-auto px-5 lg:px-10 py-8 space-y-10">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">1학년 2학기 평가 배점표</h1>
+        <h1 className="sw-display text-[clamp(40px,7vw,96px)] pb-3">1학년 2학기 평가 배점표</h1>
         <p className="text-sm text-gray-500 mt-1">
           전달받은 평가 요소와 배점만 반영했습니다. 미확정 항목의 이름과 만점은 빈칸이며, 부족한 배점은 자동으로 더하지 않습니다.
           {admin ? ' 관리자로 로그인 중이므로 아래에서 직접 수정할 수 있습니다.' : ' 관리자만 수정할 수 있습니다.'}
@@ -75,9 +75,9 @@ function SubjectsPage() {
         const missing = 100 - total
 
         return (
-          <section key={subject.id} className="bg-white rounded-xl shadow-sm p-6">
+          <section key={subject.id} className="bg-white border-t-2 border-black p-6">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-2xl font-extrabold tracking-tight">
                 {subject.name}{' '}
                 <span className="text-sm font-normal text-gray-400">
                   ({subject.category} · {subject.credits}학점
