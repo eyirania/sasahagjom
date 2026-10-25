@@ -75,7 +75,7 @@ function SubjectsPage() {
         const missing = 100 - total
 
         return (
-          <section key={subject.id} className="bg-white border-t-2 border-black p-6">
+          <section key={subject.id} className="bg-white border-t-4 border-black p-6">
             <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
               <h2 className="text-2xl font-extrabold tracking-tight">
                 {subject.name}{' '}
