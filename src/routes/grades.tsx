@@ -1,22 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useServerFn } from '@tanstack/react-start'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-  Legend,
-} from 'chart.js'
-import { Bar } from 'react-chartjs-2'
 import { getServerUser } from '../lib/auth'
 import { getMyGrades, saveMyScore, saveMyResult } from '../server/scores.functions'
 import { maximumScore, formatPoints, averageGpa, gradeScale, gradeForScore } from '../lib/grading'
 import type { Assessment } from '../lib/grading'
 import { analyzeSubject, isExamItem, targetRequirement, gpaFor } from '../lib/predict'
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
 export const Route = createFileRoute('/grades')({
   beforeLoad: async () => {
@@ -31,10 +20,31 @@ export const Route = createFileRoute('/grades')({
 })
 
 type Grades = Awaited<ReturnType<typeof getMyGrades>>
-type SortKey = 'default' | 'risk' | 'high' | 'name'
+type SortKey = 'default' | 'name' | 'score-desc' | 'score-asc' | 'gpa-desc' | 'risk'
 
 const pct = (rate: number | null) => (rate === null ? '—' : `${(rate * 100).toFixed(1)}%`)
 const fmtGpa = (gpa: number | null) => (gpa === null ? '—' : gpa.toFixed(2))
+
+/** 현재 등급 기준으로 위/아래 등급 경계까지의 거리 */
+function boundary(score: number) {
+  const index = gradeScale.findIndex((entry) => score >= entry.minimum)
+  const current = gradeScale[index]
+  const up = index > 0 ? gradeScale[index - 1] : null
+  return {
+    current: current.grade,
+    toDown: score - current.minimum,
+    up: up?.grade ?? null,
+    toUp: up ? up.minimum - score : null,
+  }
+}
+
+function badgeClass(grade: string | null) {
+  if (!grade) return 'bg-gray-100 text-gray-400'
+  if (grade.startsWith('A')) return 'bg-indigo-100 text-indigo-700'
+  if (grade.startsWith('B')) return 'bg-teal-100 text-teal-700'
+  if (grade.startsWith('C')) return 'bg-amber-100 text-amber-700'
+  return 'bg-red-100 text-red-700'
+}
 
 function GradesPage() {
   const { grades } = Route.useLoaderData() as { grades: Grades }
@@ -42,12 +52,11 @@ function GradesPage() {
   const save = useServerFn(saveMyScore)
   const saveResult = useServerFn(saveMyResult)
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-
   const [whatIf, setWhatIf] = useState(false)
   const [hypo, setHypo] = useState<Record<number, string>>({})
   const [targets, setTargets] = useState<Record<number, string>>({})
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({})
+  const [goal, setGoal] = useState('4.0')
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyEmpty, setOnlyEmpty] = useState(false)
   const [hidePF, setHidePF] = useState(false)
@@ -64,17 +73,23 @@ function GradesPage() {
   }
 
   const views = useMemo(() => data.map((subject) => {
-    if (subject.gradingType === 'pass_fail') return { subject, analysis: null, usesHypo: false }
-    const items = subject.items.map((item) => ({
-      ...item,
-      score: item.myScore ?? hypoScore(item),
-    }))
-    const usesHypo = subject.items.some((item) => hypoScore(item) !== null)
-    return { subject, analysis: analyzeSubject(items), usesHypo }
+    if (subject.gradingType === 'pass_fail') {
+      return { subject, analysis: null, usesHypo: false, remaining: 0, grade: null as ReturnType<typeof gradeForScore> }
+    }
+    const items = subject.items.map((item) => ({ ...item, score: item.myScore ?? hypoScore(item) }))
+    const analysis = analyzeSubject(items)
+    return {
+      subject,
+      analysis,
+      usesHypo: subject.items.some((item) => hypoScore(item) !== null),
+      remaining: Math.max(0, analysis.totalMax - analysis.filledMax),
+      grade: gradeForScore(analysis.expectedScore),
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [data, hypo, whatIf])
 
-  const scenario = (pick: (a: NonNullable<(typeof views)[number]['analysis']>) => number | null) =>
+  type View = (typeof views)[number]
+  const scenario = (pick: (a: NonNullable<View['analysis']>) => number | null) =>
     averageGpa(views.map((v) => ({
       credits: v.subject.credits,
       gpa: v.analysis ? gpaFor(pick(v.analysis)) : null,
@@ -84,7 +99,70 @@ function GradesPage() {
   const best = scenario((a) => a.bestScore)
   const confirmed = scenario((a) => a.confirmedScore)
 
+  // ---- 요약 통계
+  const graded = views.filter((v) => v.analysis)
+  const withData = graded.filter((v) => v.analysis!.filledMax > 0)
+  const complete = graded.filter((v) => v.analysis!.filledMax > 0 && v.remaining <= 1e-9)
+  const pending = graded.filter((v) => v.remaining > 1e-9 || v.analysis!.filledMax <= 0)
+  const topView = [...withData].sort((a, b) => b.analysis!.expectedScore! - a.analysis!.expectedScore!)[0]
+  const riskViews = withData
+    .map((v) => ({ v, b: boundary(v.analysis!.expectedScore!) }))
+    .filter(({ b }) => (b.toUp !== null && b.toUp > 0 && b.toUp <= 2) || (b.toDown >= 0 && b.toDown <= 2))
+    .sort((a, b) => Math.min(a.b.toUp ?? 99, a.b.toDown) - Math.min(b.b.toUp ?? 99, b.b.toDown))
+  const pfCount = views.filter((v) => v.subject.gradingType === 'pass_fail').length
+
+  // ---- 과목군별 평균 (예상 원점수, 100점 기준)
+  const groupAverages = Array.from(
+    withData.reduce((map, v) => {
+      const list = map.get(v.subject.category) ?? []
+      list.push(v.analysis!.expectedScore!)
+      return map.set(v.subject.category, list)
+    }, new Map<string, number[]>()),
+  ).map(([name, scores]) => ({ name, avg: scores.reduce((a, b) => a + b, 0) / scores.length, count: scores.length }))
+
+  // ---- 목표 평점
+  const goalValue = Number(goal)
+  function goalStatus() {
+    if (!Number.isFinite(goalValue) || goalValue <= 0) return { kind: 'info' as const, text: '유효한 목표 평점을 입력해 주세요.' }
+    if (expected.gpa !== null && expected.gpa >= goalValue) {
+      return { kind: 'ok' as const, text: `현재 예상으로도 ${goalValue.toFixed(2)} 달성 가능 (현재 ${expected.gpa.toFixed(2)})` }
+    }
+    let confW = 0, confG = 0, remainW = 0, bestG = 0
+    for (const v of graded) {
+      const w = v.subject.credits
+      if (w <= 0) continue
+      const a = v.analysis!
+      if (a.filledMax > 0 && v.remaining <= 1e-9) {
+        confW += w
+        confG += (gpaFor(a.expectedScore) ?? 0) * w
+        bestG += (gpaFor(a.expectedScore) ?? 0) * w
+      } else {
+        remainW += w
+        bestG += (a.filledMax > 0 ? gpaFor(a.bestScore) ?? 4.3 : 4.3) * w
+      }
+    }
+    const totalW = confW + remainW
+    if (totalW > 0 && bestG / totalW < goalValue) {
+      return { kind: 'bad' as const, text: `남은 항목을 모두 만점 받아도 ${goalValue.toFixed(2)} 달성 불가 (최선 ${(bestG / totalW).toFixed(2)})` }
+    }
+    if (remainW <= 0 || expected.gpa === null) return { kind: 'info' as const, text: '점수를 입력하면 목표까지 필요한 평점을 알려줘요.' }
+    const need = (goalValue * totalW - confG) / remainW
+    const gap = goalValue - expected.gpa
+    return {
+      kind: 'info' as const,
+      text: `목표까지 ${gap.toFixed(2)} 부족. 남은 과목 평균 ${Math.min(Math.max(need, 0), 4.3).toFixed(2)} 필요${need > 4.3 ? ' · 4.3 초과로 어려움' : ''}`,
+    }
+  }
+  const goalResult = goalStatus()
+
+  // ---- 필터 / 정렬
   const categories = Array.from(new Set(data.map((s) => s.category)))
+  const riskKey = (v: View) => {
+    const score = v.analysis?.expectedScore
+    if (score === null || score === undefined) return 99
+    const b = boundary(score)
+    return Math.min(b.toUp ?? 99, b.toDown)
+  }
   const visible = views
     .filter((v) => category === 'all' || v.subject.category === category)
     .filter((v) => !(hidePF && v.subject.gradingType === 'pass_fail'))
@@ -94,34 +172,19 @@ function GradesPage() {
       return v.subject.items.some((item) => item.points !== null && item.myScore === null)
     })
     .sort((a, b) => {
-      if (sort === 'name') return a.subject.name.localeCompare(b.subject.name, 'ko')
       if (sort === 'default') return 0
+      if (sort === 'name') return a.subject.name.localeCompare(b.subject.name, 'ko')
+      if (sort === 'risk') return riskKey(a) - riskKey(b)
       const sa = a.analysis?.expectedScore ?? null
       const sb = b.analysis?.expectedScore ?? null
       if (sa === null && sb === null) return 0
       if (sa === null) return 1
       if (sb === null) return -1
-      return sort === 'risk' ? sa - sb : sb - sa
+      if (sort === 'gpa-desc') return (gpaFor(sb) ?? -1) - (gpaFor(sa) ?? -1) || sb - sa
+      return sort === 'score-asc' ? sa - sb : sb - sa
     })
 
-  const chartViews = views.filter((v) => v.analysis && v.analysis.filledMax > 0)
-  const chartData = {
-    labels: chartViews.map((v) => v.subject.name),
-    datasets: [
-      {
-        label: '지필 득점률 (%)',
-        data: chartViews.map((v) => (v.analysis!.exam.rate === null ? null : Number((v.analysis!.exam.rate * 100).toFixed(1)))),
-        backgroundColor: 'rgba(79, 107, 255, 0.75)',
-        borderRadius: 4,
-      },
-      {
-        label: '수행 득점률 (%)',
-        data: chartViews.map((v) => (v.analysis!.perf.rate === null ? null : Number((v.analysis!.perf.rate * 100).toFixed(1)))),
-        backgroundColor: 'rgba(46, 196, 182, 0.75)',
-        borderRadius: 4,
-      },
-    ],
-  }
+  const allExpanded = visible.length > 0 && visible.every((v) => expanded[v.subject.id])
 
   function exportCsv() {
     const esc = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
@@ -154,48 +217,101 @@ function GradesPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">내 성적 입력</h1>
         <p className="text-sm text-gray-500 mt-1">
-          1회고사·2회고사는 100점 만점으로 입력하세요. 배점에 맞춰 자동 환산됩니다. 엔터를 누르거나 다른 곳을 클릭하면 저장되며, 점수를 지우면 미입력으로 저장됩니다.
+          지필(1·2회고사)은 100점 만점으로 입력하세요. 반영비율(0.3, 0.25 등)을 곱해 자동 환산됩니다. 엔터를 누르거나 다른 곳을 클릭하면 저장되며, 점수를 지우면 미입력으로 저장됩니다.
         </p>
       </div>
 
-      <section className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-emerald-600" aria-label="예측 평균 GPA">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-500">예상 평균 GPA · 이수학점 가중평균</h2>
-            <p className="mt-2 text-3xl font-bold text-gray-900 tabular-nums">
-              {fmtGpa(expected.gpa)} <span className="text-base font-normal text-gray-400">/ 4.30</span>
+      {/* ============ HERO ============ */}
+      <section className="grid gap-4 lg:grid-cols-3" aria-label="예측 평균 GPA">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 border-l-4 border-emerald-600">
+          <h2 className="text-sm font-semibold text-gray-500">예상 전체 평점 · 이수학점 가중평균</h2>
+          <p className="mt-2 text-5xl font-bold text-gray-900 tabular-nums hero-gpa">
+            {fmtGpa(expected.gpa)} <span className="text-lg font-normal text-gray-400">/ 4.30</span>
+          </p>
+          <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
+            <Meta label="입력 항목 기준 평점" value={fmtGpa(confirmed.gpa)} />
+            <Meta label="총 이수 학점" value={String(expected.credits)} />
+            <Meta label="반영 과목" value={`${expected.subjectCount}과목`} />
+          </dl>
+          <p className="mt-3 text-xs text-gray-500">
+            입력한 점수가 하나라도 있는 과목만 포함합니다. 빈 지필 항목은 입력한 지필 득점률로, 빈 수행 항목은 수행 득점률로 채워 예상하며 (한쪽 입력이 없으면 다른 쪽 사용),
+            P/F 과목은 제외합니다. 최종 성적과 다를 수 있습니다.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-gray-700">시나리오 분석</h3>
+            <ScenarioRow label="최악 (빈칸 0점)" value={fmtGpa(worst.gpa)} tone="text-red-600" />
+            <ScenarioRow label="예상 (득점률 대입)" value={fmtGpa(expected.gpa)} tone="text-emerald-700" strong />
+            <ScenarioRow label="최선 (빈칸 만점)" value={fmtGpa(best.gpa)} tone="text-indigo-600" />
+          </div>
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h3 className="text-sm font-semibold text-gray-700">목표 평점</h3>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number" min={0} max={4.3} step={0.01}
+                aria-label="목표 평점"
+                className="border rounded px-2 py-1 w-24"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+              />
+              <span className="text-sm text-gray-400">/ 4.3</span>
+            </div>
+            <p className={`mt-2 text-xs ${goalResult.kind === 'ok' ? 'text-emerald-700' : goalResult.kind === 'bad' ? 'text-red-600' : 'text-gray-600'}`}>
+              {goalResult.text}
             </p>
           </div>
-          <p className="text-sm text-gray-500">{expected.subjectCount}과목 · {expected.credits}학점 반영</p>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
-          <ScenarioCell label="최악 (빈칸 0점)" gpa={worst.gpa} />
-          <ScenarioCell label="예상 (빈칸 득점률 대입)" gpa={expected.gpa} strong />
-          <ScenarioCell label="최선 (빈칸 만점)" gpa={best.gpa} />
-        </div>
-        <p className="mt-3 text-xs text-gray-500">
-          입력한 점수가 하나라도 있는 과목만 포함합니다. 예상은 빈 지필 항목을 입력한 지필 득점률로, 빈 수행 항목을 입력한 수행 득점률로 채워 계산합니다
-          (한쪽 입력이 없으면 다른 쪽 득점률을 사용). 입력한 항목만 기준으로 한 평균 GPA는 {fmtGpa(confirmed.gpa)}입니다.
-          P/F 과목은 제외하고 등급 과목의 F는 GPA 0으로 포함하며, 최종 성적과 다를 수 있습니다.
-        </p>
       </section>
 
-      {mounted && chartViews.length > 0 && (
-        <section className="bg-white rounded-xl shadow-sm p-6" aria-label="지필 수행 득점률">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">과목별 지필 · 수행 득점률</h2>
-          <p className="text-xs text-gray-500 mb-4">입력한 항목 기준 득점률입니다. 입력이 없는 쪽은 표시되지 않습니다.</p>
-          <Bar
-            data={chartData}
-            options={{
-              responsive: true,
-              plugins: { legend: { position: 'bottom' } },
-              scales: { y: { beginAtZero: true, max: 100 } },
-            }}
-          />
+      {/* ============ 요약 통계 ============ */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3" aria-label="요약 통계">
+        <Stat label="입력 완료 과목" value={String(complete.length)} sub={`/ ${graded.length} 과목`} />
+        <Stat label="빈칸 남은 과목" value={String(pending.length)} sub="아직 채울 항목 있음" />
+        <Stat
+          label="최고 예상 과목"
+          value={topView ? topView.subject.name : '—'}
+          sub={topView ? `${formatPoints(topView.analysis!.expectedScore!)}점 · ${topView.grade?.grade ?? ''}` : '—'}
+          small
+        />
+        <Stat
+          label="위험 과목"
+          value={riskViews[0] ? riskViews[0].v.subject.name : '—'}
+          sub={riskViews[0]
+            ? (riskViews[0].b.toUp !== null && riskViews[0].b.toUp > 0 && riskViews[0].b.toUp <= 2
+              ? `${riskViews[0].b.up}까지 ${riskViews[0].b.toUp.toFixed(1)}점 부족`
+              : `${riskViews[0].b.current} 경계 (${riskViews[0].b.toDown.toFixed(1)}점 여유)`)
+            : withData.length ? '안정권' : '—'}
+          small
+        />
+        <Stat label="P/F 과목" value={String(pfCount)} sub="평점 계산 제외" />
+      </section>
+
+      {/* ============ 과목군별 평균 ============ */}
+      {groupAverages.length > 0 && (
+        <section aria-label="과목군별 평균">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-900">과목군별 평균</h2>
+            <span className="text-xs text-gray-400">예상 원점수 · 100점 기준</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {groupAverages.map((group) => (
+              <div key={group.name} className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                  <span className="font-semibold tabular-nums">{group.avg.toFixed(1)}</span>
+                </div>
+                <div className="mt-2 h-1.5 rounded bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, Math.max(0, group.avg))}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -217,18 +333,21 @@ function GradesPage() {
         </div>
       </details>
 
+      {/* ============ 컨트롤 ============ */}
       <section className="bg-white rounded-xl shadow-sm p-4 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm" aria-label="보기 설정">
         <label className="flex items-center gap-2">
           정렬
           <select className="border rounded px-2 py-1" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="default">기본</option>
-            <option value="risk">예상 점수 낮은 순 (위험 과목)</option>
-            <option value="high">예상 점수 높은 순</option>
-            <option value="name">이름 순</option>
+            <option value="default">기본순</option>
+            <option value="name">과목명순</option>
+            <option value="score-desc">예상 점수 ↓</option>
+            <option value="score-asc">예상 점수 ↑</option>
+            <option value="gpa-desc">평점 높은 순</option>
+            <option value="risk">위험 과목 우선</option>
           </select>
         </label>
         <label className="flex items-center gap-2">
-          분류
+          과목군
           <select className="border rounded px-2 py-1" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="all">전체</option>
             {categories.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -239,149 +358,232 @@ function GradesPage() {
         <label className="flex items-center gap-1 font-medium text-indigo-700">
           <input type="checkbox" checked={whatIf} onChange={(e) => setWhatIf(e.target.checked)} />가정 입력 (저장 안 됨)
         </label>
-        <button type="button" onClick={exportCsv} className="ml-auto border rounded px-3 py-1 hover:bg-gray-50">CSV 내보내기</button>
+        <span className="ml-auto flex gap-2">
+          <button
+            type="button"
+            className="border rounded px-3 py-1 hover:bg-gray-50"
+            onClick={() => setExpanded(Object.fromEntries(visible.map((v) => [v.subject.id, !allExpanded])))}
+          >
+            {allExpanded ? '전체 접기' : '전체 펼치기'}
+          </button>
+          <button type="button" onClick={exportCsv} className="border rounded px-3 py-1 hover:bg-gray-50">CSV 내보내기</button>
+        </span>
       </section>
       {whatIf && (
         <p className="-mt-4 text-xs text-indigo-700">
-          가정 입력 모드: 빈칸 옆의 &quot;가정&quot; 칸에 점수를 넣으면 예상 등급과 GPA에 반영됩니다. 가정 점수는 저장되지 않고 새로고침하면 사라집니다.
+          가정 입력 모드: 과목을 펼쳐 빈칸 옆의 &quot;가정&quot; 칸에 점수를 넣으면 예상 등급과 GPA에 반영됩니다. 가정 점수는 저장되지 않고 새로고침하면 사라집니다.
         </p>
       )}
 
-      {visible.map(({ subject, analysis, usesHypo }) => {
+      {/* ============ 과목 카드 ============ */}
+      <section className="grid gap-4" aria-label="과목">
+      {visible.map(({ subject, analysis, usesHypo, remaining, grade }) => {
+        const isOpen = !!expanded[subject.id]
+        const isPF = subject.gradingType === 'pass_fail'
         const targetCut = targets[subject.id] ?? ''
         const requirement = analysis && targetCut !== '' ? targetRequirement(analysis, Number(targetCut)) : null
         const knownItems = subject.items.filter((item) => item.points !== null)
         const recorded = knownItems.filter((item) => item.myScore !== null).length
-        const expectedGrade = analysis ? gradeForScore(analysis.expectedScore) : null
         const confirmedGrade = analysis ? gradeForScore(analysis.confirmedScore) : null
         const worstGrade = analysis ? gradeForScore(analysis.worstScore) : null
         const bestGrade = analysis ? gradeForScore(analysis.bestScore) : null
+        const progress = analysis && analysis.totalMax > 0 ? (analysis.filledMax / analysis.totalMax) * 100 : 0
+
+        const flags: { text: string; tone: string }[] = []
+        if (isPF) flags.push({ text: 'P/F', tone: 'bg-gray-100 text-gray-600' })
+        if (analysis && (remaining > 1e-9 || analysis.filledMax <= 0)) {
+          flags.push({ text: `빈칸 ${formatPoints(remaining)}점`, tone: 'bg-amber-50 text-amber-700' })
+        }
+        if (analysis && analysis.expectedScore !== null) {
+          const b = boundary(analysis.expectedScore)
+          if (b.toUp !== null && b.toUp > 0 && b.toUp <= 2) flags.push({ text: `${b.up}까지 ${b.toUp.toFixed(1)}점`, tone: 'bg-orange-50 text-orange-700' })
+          else if (b.toDown >= 0 && b.toDown <= 2) flags.push({ text: `${b.current} 경계`, tone: 'bg-orange-50 text-orange-700' })
+          else flags.push({ text: `${b.current} 안정`, tone: 'bg-emerald-50 text-emerald-700' })
+        }
+        if (requirement) {
+          const label = gradeScale.find((entry) => entry.minimum === Number(targetCut))?.grade ?? '목표'
+          if (requirement.status === 'achieved') flags.push({ text: `🎯 ${label} 달성`, tone: 'bg-indigo-50 text-indigo-700' })
+          else if (requirement.status === 'impossible') flags.push({ text: `🎯 ${label} 불가`, tone: 'bg-red-50 text-red-700' })
+          else flags.push({ text: `🎯 ${label} ${(requirement.rate * 100).toFixed(0)}% 필요`, tone: 'bg-indigo-50 text-indigo-700' })
+        }
+        if (usesHypo) flags.push({ text: '가정 포함', tone: 'bg-indigo-100 text-indigo-700' })
+
+        const scoreText = isPF
+          ? (subject.myResult === 'P' ? 'Pass' : subject.myResult === 'F' ? 'Fail' : '—')
+          : analysis?.expectedScore != null ? formatPoints(analysis.expectedScore) : '—'
+        const badgeText = isPF ? (subject.myResult ?? '—') : grade?.grade ?? '—'
+
         return (
-        <section key={subject.id} className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
-            {subject.name}{' '}
-            <span className="text-sm font-normal text-gray-400">({subject.category})</span>
-            <span className="text-sm font-normal text-gray-400"> · {subject.credits}학점</span>
-          </h2>
-          {subject.gradingType === 'pass_fail' ? (
-            <ResultInput
-              initialValue={subject.myResult}
-              subjectName={subject.name}
-              onSave={async (result) => {
-                await saveResult({ data: { subjectId: subject.id, result } })
-                setData((current) => current.map((entry) => entry.id === subject.id ? { ...entry, myResult: result } : entry))
-              }}
-            />
-          ) : <>
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-2">평가 요소</th>
-                <th className="py-2 pr-2">구분</th>
-                <th className="py-2 pr-2">원점수 만점</th>
-                <th className="py-2 pr-2">반영비율</th>
-                <th className="py-2 pr-2">실제 받은 점수</th>
-                <th className="py-2 pr-2">반영 점수</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subject.items.map((item) => (
-                <ScoreRow
-                  key={item.id}
-                  item={item}
-                  whatIf={whatIf}
-                  hypoValue={hypo[item.id] ?? ''}
-                  onHypo={(value) => setHypo((current) => ({ ...current, [item.id]: value }))}
-                  onSave={async (score) => {
-                    await save({ data: { assessmentItemId: item.id, score } })
-                    setData((current) => current.map((entry) => entry.id === subject.id ? {
-                      ...entry,
-                      items: entry.items.map((assessment) => assessment.id === item.id ? {
-                        ...assessment,
-                        myScore: score === null ? null : String(score),
-                      } : assessment),
-                    } : entry))
+        <article key={subject.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <button
+            type="button"
+            aria-expanded={isOpen}
+            className="w-full text-left p-5 hover:bg-gray-50/60"
+            onClick={() => setExpanded((current) => ({ ...current, [subject.id]: !current[subject.id] }))}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900 truncate">
+                  {subject.name}{' '}
+                  <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-500">{subject.category}</span>
+                </h2>
+              </div>
+              <span className={`rounded-lg px-3 py-1 text-sm font-bold ${badgeClass(isPF ? (subject.myResult === 'P' ? 'A' : subject.myResult === 'F' ? 'F' : null) : grade?.grade ?? null)}`}>{badgeText}</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden>
+                <path d="M3 6L8 11L13 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-3 text-sm">
+              <Num label="예상 점수" value={scoreText} />
+              <Num label="예상 평점" value={isPF ? '—' : grade ? grade.gpa.toFixed(2) : '—'} em />
+              <Num label="학점" value={String(subject.credits)} />
+              <Num label="남은 배점" value={isPF ? '—' : formatPoints(remaining)} />
+            </div>
+            {!isPF && (
+              <div className="mt-3 h-1.5 rounded bg-gray-100 overflow-hidden">
+                <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
+              </div>
+            )}
+            {flags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {flags.map((flag) => <span key={flag.text} className={`rounded-full px-2 py-0.5 text-xs ${flag.tone}`}>{flag.text}</span>)}
+              </div>
+            )}
+          </button>
+
+          {isOpen && (
+            <div className="border-t border-gray-100 p-5">
+              {isPF ? (
+                <ResultInput
+                  initialValue={subject.myResult}
+                  subjectName={subject.name}
+                  onSave={async (result) => {
+                    await saveResult({ data: { subjectId: subject.id, result } })
+                    setData((current) => current.map((entry) => entry.id === subject.id ? { ...entry, myResult: result } : entry))
                   }}
                 />
-              ))}
-              {subject.items.length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-gray-500">평가 항목이 아직 전달되지 않았습니다.</td></tr>
+              ) : <>
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-200">
+                    <th className="py-2 pr-2">평가 요소</th>
+                    <th className="py-2 pr-2">구분</th>
+                    <th className="py-2 pr-2">원점수 만점</th>
+                    <th className="py-2 pr-2">반영비율</th>
+                    <th className="py-2 pr-2">실제 받은 점수</th>
+                    <th className="py-2 pr-2">반영 점수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subject.items.map((item) => (
+                    <ScoreRow
+                      key={item.id}
+                      item={item}
+                      whatIf={whatIf}
+                      hypoValue={hypo[item.id] ?? ''}
+                      onHypo={(value) => setHypo((current) => ({ ...current, [item.id]: value }))}
+                      onSave={async (score) => {
+                        await save({ data: { assessmentItemId: item.id, score } })
+                        setData((current) => current.map((entry) => entry.id === subject.id ? {
+                          ...entry,
+                          items: entry.items.map((assessment) => assessment.id === item.id ? {
+                            ...assessment,
+                            myScore: score === null ? null : String(score),
+                          } : assessment),
+                        } : entry))
+                      }}
+                    />
+                  ))}
+                  {subject.items.length === 0 && (
+                    <tr><td colSpan={6} className="py-4 text-gray-500">평가 항목이 아직 전달되지 않았습니다.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              </div>
+              {analysis && knownItems.length > 0 && (
+                <div className="mt-4 border-t border-gray-200 pt-3 space-y-3">
+                  <p className="text-xs text-gray-500">
+                    {recorded} / {knownItems.length}개 항목 입력 · 확인된 배점 합계 {formatPoints(analysis.totalMax)}점
+                    {analysis.totalMax < 100 && ' (일부 배점이 아직 미정이라 100점 미만일 수 있습니다)'}
+                  </p>
+                  <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900 space-y-1">
+                    {analysis.expectedScore !== null && grade ? <>
+                      <p className="font-semibold tabular-nums">
+                        예상 등급 {grade.grade} · GPA {grade.gpa.toFixed(1)} · 예상 원점수 {formatPoints(analysis.expectedScore)} / 100점
+                      </p>
+                      <p className="text-xs">
+                        입력한 항목만 기준: {formatPoints(analysis.confirmedScore ?? 0)}점 ({confirmedGrade?.grade ?? '—'}) ·
+                        가능 범위 {formatPoints(analysis.worstScore ?? 0)}점({worstGrade?.grade ?? '—'}) ~ {formatPoints(analysis.bestScore ?? 0)}점({bestGrade?.grade ?? '—'}) ·
+                        지필 득점률 {pct(analysis.exam.rate)} · 수행 득점률 {pct(analysis.perf.rate)} · 최종 성적이 아닙니다.
+                      </p>
+                    </> : <p>만점이 알려진 항목의 점수를 저장하면 예상 등급과 GPA가 표시됩니다.</p>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-sm">
+                    <label className="flex items-center gap-2">
+                      목표 등급
+                      <select
+                        className="border rounded px-2 py-1"
+                        value={targetCut}
+                        onChange={(e) => setTargets((current) => ({ ...current, [subject.id]: e.target.value }))}
+                      >
+                        <option value="">선택 안 함</option>
+                        {gradeScale.filter((entry) => entry.grade !== 'F').map((entry) => (
+                          <option key={entry.grade} value={entry.minimum}>{entry.grade} ({entry.minimum}점 이상)</option>
+                        ))}
+                      </select>
+                    </label>
+                    {requirement && <TargetMessage result={requirement} />}
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
-          </div>
-          {analysis && knownItems.length > 0 && (
-            <div className="mt-4 border-t border-gray-200 pt-3 space-y-3">
-              <p className="text-xs text-gray-500">
-                {recorded} / {knownItems.length}개 항목 입력 · 확인된 배점 합계 {formatPoints(analysis.totalMax)}점
-                {analysis.totalMax < 100 && ' (일부 배점이 아직 미정이라 100점 미만일 수 있습니다)'}
-              </p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <RateCell label="지필 득점률" rate={analysis.exam.rate} detail={`${formatPoints(analysis.exam.filledMax)} / ${formatPoints(analysis.exam.max)}점 입력`} color="bg-indigo-500" />
-                <RateCell label="수행 득점률" rate={analysis.perf.rate} detail={`${formatPoints(analysis.perf.filledMax)} / ${formatPoints(analysis.perf.max)}점 입력`} color="bg-teal-500" />
-              </div>
-              <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900 space-y-1">
-                {analysis.expectedScore !== null && expectedGrade ? <>
-                  <p className="font-semibold tabular-nums">
-                    예상 등급 {expectedGrade.grade} · GPA {expectedGrade.gpa.toFixed(1)} · 예상 원점수 {formatPoints(analysis.expectedScore)} / 100점
-                    {usesHypo && <span className="ml-2 rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-normal text-indigo-700">가정 포함</span>}
-                  </p>
-                  <p className="text-xs">
-                    입력한 항목만 기준: {formatPoints(analysis.confirmedScore ?? 0)}점 ({confirmedGrade?.grade ?? '—'}) ·
-                    가능 범위 {formatPoints(analysis.worstScore ?? 0)}점({worstGrade?.grade ?? '—'}) ~ {formatPoints(analysis.bestScore ?? 0)}점({bestGrade?.grade ?? '—'}) · 최종 성적이 아닙니다.
-                  </p>
-                </> : <p>만점이 알려진 항목의 점수를 저장하면 예상 등급과 GPA가 표시됩니다.</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <label className="flex items-center gap-2">
-                  목표 등급
-                  <select
-                    className="border rounded px-2 py-1"
-                    value={targetCut}
-                    onChange={(e) => setTargets((current) => ({ ...current, [subject.id]: e.target.value }))}
-                  >
-                    <option value="">선택 안 함</option>
-                    {gradeScale.filter((entry) => entry.grade !== 'F').map((entry) => (
-                      <option key={entry.grade} value={entry.minimum}>{entry.grade} ({entry.minimum}점 이상)</option>
-                    ))}
-                  </select>
-                </label>
-                {requirement && <TargetMessage result={requirement} />}
-              </div>
+              {subject.items.some((item) => item.points === null) && (
+                <p className="text-xs text-amber-700 mt-3">만점이 미정인 점수는 저장만 하며, 계산에는 포함하지 않습니다.</p>
+              )}
+              </>}
             </div>
           )}
-          {subject.items.some((item) => item.points === null) && (
-            <p className="text-xs text-amber-700 mt-3">만점이 미정인 점수는 저장만 하며, 계산에는 포함하지 않습니다.</p>
-          )}
-          </>}
-        </section>
+        </article>
       )})}
       {visible.length === 0 && <p className="text-sm text-gray-500">조건에 맞는 과목이 없습니다.</p>}
+      </section>
     </div>
   )
 }
 
-function ScenarioCell({ label, gpa, strong }: { label: string; gpa: number | null; strong?: boolean }) {
-  return (
-    <div className={`rounded-lg px-2 py-3 ${strong ? 'bg-emerald-50 text-emerald-900' : 'bg-gray-50 text-gray-700'}`}>
-      <p className="text-xs">{label}</p>
-      <p className={`mt-1 tabular-nums ${strong ? 'text-xl font-bold' : 'text-lg font-semibold'}`}>{fmtGpa(gpa)}</p>
-    </div>
-  )
-}
-
-function RateCell({ label, rate, detail, color }: { label: string; rate: number | null; detail: string; color: string }) {
+function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-gray-50 px-3 py-2">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-gray-500">{label}</span>
-        <span className="font-semibold tabular-nums">{pct(rate)}</span>
-      </div>
-      <div className="mt-1 h-1.5 rounded bg-gray-200 overflow-hidden">
-        <div className={`h-full ${color}`} style={{ width: `${Math.min(100, (rate ?? 0) * 100)}%` }} />
-      </div>
-      <p className="mt-1 text-xs text-gray-400">{detail}</p>
+      <dt className="text-xs text-gray-500">{label}</dt>
+      <dd className="mt-0.5 font-semibold tabular-nums">{value}</dd>
+    </div>
+  )
+}
+
+function ScenarioRow({ label, value, tone, strong }: { label: string; value: string; tone: string; strong?: boolean }) {
+  return (
+    <div className="mt-2 flex items-baseline justify-between text-sm">
+      <span className="text-gray-600">{label}</span>
+      <span className={`tabular-nums ${tone} ${strong ? 'text-lg font-bold' : 'font-semibold'}`}>{value}</span>
+    </div>
+  )
+}
+
+function Stat({ label, value, sub, small }: { label: string; value: string; sub: string; small?: boolean }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`mt-1 font-bold text-gray-900 truncate ${small ? 'text-base' : 'text-2xl tabular-nums'}`}>{value}</p>
+      <p className="mt-0.5 text-xs text-gray-400 truncate">{sub}</p>
+    </div>
+  )
+}
+
+function Num({ label, value, em }: { label: string; value: string; em?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className={`font-semibold tabular-nums ${em ? 'text-emerald-700' : 'text-gray-900'}`}>{value}</p>
     </div>
   )
 }
