@@ -6,6 +6,7 @@ import { students, studentScores, studentSubjectResults, assessmentItems, subjec
 import { requireAuthMiddleware, requireAdminMiddleware } from '../middleware/identity'
 import { maximumScore, weightedMaximum, weightedScore, predictGrade, gradeForScore, averageGpa } from '../lib/grading'
 import { analyzeSubject, isExamItem } from '../lib/predict'
+import { computePredictions } from '../lib/peerModel'
 import { describe, histogram } from '../lib/stats'
 
 async function getOrCreateStudent(user: { id: string; email: string; name?: string }) {
@@ -27,6 +28,24 @@ async function getOrCreateStudent(user: { id: string; email: string; name?: stri
   return created
 }
 
+/** 내 빈 항목마다 예상 득점률/흔들림 폭만 계산해 돌려준다. 다른 학생의 값은 포함하지 않는다. */
+async function predictionsFor(studentId: number) {
+  const items = await db.select().from(assessmentItems)
+  const rows = await db.select().from(studentScores)
+  return computePredictions(
+    items.map((item) => ({ id: item.id, max: maximumScore(item), isExam: isExamItem(item) })),
+    rows.filter((row) => row.score !== null).map((row) => ({ studentId: row.studentId, itemId: row.assessmentItemId, score: Number(row.score) })),
+    studentId,
+  )
+}
+
+export const getMyPredictions = createServerFn({ method: 'GET' })
+  .middleware([requireAuthMiddleware])
+  .handler(async ({ context }) => {
+    const student = await getOrCreateStudent(context.user as any)
+    return Object.fromEntries(await predictionsFor(student.id))
+  })
+
 export const getMyGrades = createServerFn({ method: 'GET' })
   .middleware([requireAuthMiddleware])
   .handler(async ({ context }) => {
@@ -42,6 +61,7 @@ export const getMyGrades = createServerFn({ method: 'GET' })
     const myResults = await db.select().from(studentSubjectResults)
       .where(eq(studentSubjectResults.studentId, student.id))
     const resultBySubject = new Map(myResults.map((result) => [result.subjectId, result.result]))
+    const predictions = await predictionsFor(student.id)
 
     return allSubjects.map((subject) => ({
       ...subject,
@@ -51,6 +71,8 @@ export const getMyGrades = createServerFn({ method: 'GET' })
         .map((item) => ({
           ...item,
           myScore: scoreByItem.get(item.id) ?? null,
+          predRate: predictions.get(item.id)?.rate ?? null,
+          predSd: predictions.get(item.id)?.sd ?? null,
         })),
     }))
   })

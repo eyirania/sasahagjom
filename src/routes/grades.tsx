@@ -2,10 +2,12 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
 import { useServerFn } from '@tanstack/react-start'
 import { getServerUser } from '../lib/auth'
-import { getMyGrades, saveMyScore, saveMyResult } from '../server/scores.functions'
+import { getMyGrades, getMyPredictions, saveMyScore, saveMyResult } from '../server/scores.functions'
 import { maximumScore, formatPoints, averageGpa, gradeScale, gradeForScore } from '../lib/grading'
 import type { Assessment } from '../lib/grading'
-import { analyzeSubject, isExamItem, targetRequirement, gpaFor } from '../lib/predict'
+import { analyzeSubject, emptyItemModels, finalRequirement, isExamItem, targetRequirement, gpaFor } from '../lib/predict'
+import type { FinalResult } from '../lib/predict'
+import { simulateGpa } from '../lib/montecarlo'
 
 export const Route = createFileRoute('/grades')({
   beforeLoad: async () => {
@@ -50,16 +52,30 @@ function GradesPage() {
   const [data, setData] = useState(grades)
   const save = useServerFn(saveMyScore)
   const saveResult = useServerFn(saveMyResult)
+  const fetchPredictions = useServerFn(getMyPredictions)
 
   const [whatIf, setWhatIf] = useState(false)
   const [hypo, setHypo] = useState<Record<number, string>>({})
   const [targets, setTargets] = useState<Record<number, string>>({})
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
-  const [goal, setGoal] = useState('4.0')
+  const [goalManual, setGoalManual] = useState<string | null>(null)
   const [sort, setSort] = useState<SortKey>('default')
   const [onlyEmpty, setOnlyEmpty] = useState(false)
   const [hidePF, setHidePF] = useState(false)
   const [category, setCategory] = useState('all')
+
+  /** 점수를 저장할 때마다 빈 항목의 예상치를 서버에서 다시 받는다 */
+  async function refreshPredictions() {
+    try {
+      const preds = (await fetchPredictions()) as Record<string, { rate: number; sd: number }>
+      setData((current) => current.map((entry) => ({
+        ...entry,
+        items: entry.items.map((item) => ({ ...item, predRate: preds[item.id]?.rate ?? null, predSd: preds[item.id]?.sd ?? null })),
+      })))
+    } catch {
+      /* 예측 갱신 실패는 조용히 무시 (기존 값 유지) */
+    }
+  }
 
   function hypoScore(item: { id: number; points: string | null; repeatCount: number; myScore: string | null; weight: string }) {
     if (!whatIf || item.myScore !== null) return null
@@ -72,13 +88,14 @@ function GradesPage() {
   }
 
   const views = useMemo(() => data.map((subject) => {
-    if (subject.gradingType === 'pass_fail') {
-      return { subject, analysis: null, usesHypo: false, remaining: 0, grade: null as ReturnType<typeof gradeForScore> }
-    }
     const items = subject.items.map((item) => ({ ...item, score: item.myScore ?? hypoScore(item) }))
+    if (subject.gradingType === 'pass_fail') {
+      return { subject, items, analysis: null, usesHypo: false, remaining: 0, grade: null as ReturnType<typeof gradeForScore> }
+    }
     const analysis = analyzeSubject(items)
     return {
       subject,
+      items,
       analysis,
       usesHypo: subject.items.some((item) => hypoScore(item) !== null),
       remaining: Math.max(0, analysis.totalMax - analysis.filledMax),
@@ -119,11 +136,22 @@ function GradesPage() {
     }, new Map<string, number[]>()),
   ).map(([name, scores]) => ({ name, avg: scores.reduce((a, b) => a + b, 0) / scores.length, count: scores.length }))
 
-  // ---- 목표 평점
-  const goalValue = Number(goal)
+  // ---- 목표 평점: 과목 카드에서 고른 목표 등급들로부터 계산 (고른 게 없으면 직접 입력)
+  const cutOf = (id: number) => targets[id] ?? ''
+  const targetGpaOf = (id: number) => {
+    const cut = cutOf(id)
+    return cut === '' ? null : gradeScale.find((entry) => entry.minimum === Number(cut))?.gpa ?? null
+  }
+  const targetCount = views.filter((v) => v.analysis && targetGpaOf(v.subject.id) !== null).length
+  const derivedGoal = averageGpa(views.map((v) => ({
+    credits: v.subject.credits,
+    gpa: !v.analysis ? null : targetGpaOf(v.subject.id) ?? gpaFor(v.analysis.expectedScore),
+  })))
+  const autoGoal = targetCount > 0 && goalManual === null
+  const goalValue = autoGoal ? derivedGoal.gpa ?? NaN : Number(goalManual ?? '4.0')
   function goalStatus() {
     if (!Number.isFinite(goalValue) || goalValue <= 0) return { kind: 'info' as const, text: '유효한 목표 평점을 입력해 주세요.' }
-    if (expected.gpa !== null && expected.gpa >= goalValue) {
+    if (expected.gpa !== null && expected.gpa >= goalValue - 1e-9) {
       return { kind: 'ok' as const, text: `현재 예상으로도 ${goalValue.toFixed(2)} 달성 가능 (현재 ${expected.gpa.toFixed(2)})` }
     }
     let confW = 0, confG = 0, remainW = 0, bestG = 0
@@ -153,6 +181,21 @@ function GradesPage() {
     }
   }
   const goalResult = goalStatus()
+
+  // ---- 5단계 시나리오 (과목별 빈 항목 점수를 정규분포로 2,000번 뽑아 만든 평점 분포)
+  const mc = useMemo(() => simulateGpa(
+    views
+      .filter((v) => v.analysis && v.analysis.filledMax > 0 && v.analysis.totalMax > 0)
+      .map((v) => ({
+        credits: v.subject.credits,
+        earned: v.analysis!.earned,
+        totalMax: v.analysis!.totalMax,
+        empties: emptyItemModels(v.items, v.analysis!),
+      })),
+    Number.isFinite(goalValue) && goalValue > 0 ? goalValue : null,
+  ), [views, goalValue])
+  const lowerGpa = mc && expected.gpa !== null && worst.gpa !== null ? Math.max(worst.gpa, Math.min(mc.lower, expected.gpa)) : null
+  const upperGpa = mc && expected.gpa !== null && best.gpa !== null ? Math.min(best.gpa, Math.max(mc.upper, expected.gpa)) : null
 
   // ---- 필터 / 정렬
   const categories = Array.from(new Set(data.map((s) => s.category)))
@@ -237,7 +280,7 @@ function GradesPage() {
             <Meta label="반영 과목" value={`${expected.subjectCount}과목`} />
           </dl>
           <p className="mt-3 text-xs text-gray-500">
-            입력한 점수가 하나라도 있는 과목만 포함합니다. 빈 지필 항목은 입력한 지필 득점률로, 빈 수행 항목은 수행 득점률로 채워 예상하며 (한쪽 입력이 없으면 다른 쪽 사용),
+            입력한 점수가 하나라도 있는 과목만 포함하고, 비어 있는 항목은 입력한 점수를 바탕으로 추정합니다.
             P/F 과목은 제외합니다. 최종 성적과 다를 수 있습니다.
           </p>
         </div>
@@ -246,24 +289,55 @@ function GradesPage() {
           <div>
             <h3 className="sw-label">시나리오 분석</h3>
             <ScenarioRow label="최악 (빈칸 0점)" value={fmtGpa(worst.gpa)} tone="text-red-600" />
-            <ScenarioRow label="예상 (득점률 대입)" value={fmtGpa(expected.gpa)} tone="text-emerald-700" strong />
+            <ScenarioRow label="하위 50%" value={fmtGpa(lowerGpa)} tone="text-gray-700" />
+            <ScenarioRow label="평균" value={fmtGpa(expected.gpa)} tone="text-emerald-700" strong />
+            <ScenarioRow label="상위 50%" value={fmtGpa(upperGpa)} tone="text-gray-700" />
             <ScenarioRow label="최선 (빈칸 만점)" value={fmtGpa(best.gpa)} tone="text-indigo-600" />
-          </div>
-          <div className="border-t border-black/10 pt-4">
-            <h3 className="sw-label">목표 평점</h3>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="number" min={0} max={4.3} step={0.01}
-                aria-label="목표 평점"
-                className="px-2 py-1 w-24 font-medium"
-                value={goal}
-                onChange={(e) => setGoal(e.target.value)}
+            {worst.gpa !== null && best.gpa !== null && expected.gpa !== null && (
+              <RangeBar
+                points={[worst.gpa, lowerGpa, expected.gpa, upperGpa, best.gpa]}
+                goal={Number.isFinite(goalValue) && goalValue > 0 ? goalValue : null}
               />
-              <span className="text-sm text-gray-400">/ 4.3</span>
-            </div>
+            )}
+            <p className="mt-2 text-xs text-gray-500">하위·상위 50%는 남은 점수가 흔들릴 때 낮은 쪽·높은 쪽 절반의 평균 평점이에요.</p>
+          </div>
+          <div className="border-t border-black/10 pt-5">
+            <h3 className="sw-label">목표 평점</h3>
+            {autoGoal ? (
+              <div className="mt-2">
+                <p className="text-4xl font-light tabular-nums" aria-label="목표 평점">
+                  {fmtGpa(derivedGoal.gpa)} <span className="text-sm text-gray-400">/ 4.3</span>
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  목표 등급을 고른 {targetCount}과목 + 나머지는 예상 기준 ·{' '}
+                  <button type="button" className="plain underline" onClick={() => setGoalManual(derivedGoal.gpa === null ? '4.0' : derivedGoal.gpa.toFixed(2))}>직접 입력</button>
+                </p>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} max={4.3} step={0.01}
+                    aria-label="목표 평점"
+                    className="px-2 py-1 w-24 font-medium"
+                    value={goalManual ?? '4.0'}
+                    onChange={(e) => setGoalManual(e.target.value)}
+                  />
+                  <span className="text-sm text-gray-400">/ 4.3</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {targetCount > 0
+                    ? <button type="button" className="plain underline" onClick={() => setGoalManual(null)}>목표 등급({targetCount}과목)으로 계산</button>
+                    : '과목을 펼쳐 목표 등급을 고르면 자동으로 계산돼요.'}
+                </p>
+              </div>
+            )}
             <p className={`mt-2 text-xs ${goalResult.kind === 'ok' ? 'text-emerald-700' : goalResult.kind === 'bad' ? 'text-red-600' : 'text-gray-600'}`}>
               {goalResult.text}
             </p>
+            {mc && mc.probability !== null && (
+              <p className="mt-1 text-sm font-medium">달성 확률 약 {Math.round(mc.probability * 100)}%</p>
+            )}
           </div>
         </div>
       </section>
@@ -378,11 +452,12 @@ function GradesPage() {
 
       {/* ============ 과목 카드 ============ */}
       <section className="grid gap-4" aria-label="과목">
-      {visible.map(({ subject, analysis, usesHypo, remaining, grade }) => {
+      {visible.map(({ subject, items: viewItems, analysis, usesHypo, remaining, grade }) => {
         const isOpen = !!expanded[subject.id]
         const isPF = subject.gradingType === 'pass_fail'
         const targetCut = targets[subject.id] ?? ''
         const requirement = analysis && targetCut !== '' ? targetRequirement(analysis, Number(targetCut)) : null
+        const finalReq = analysis && targetCut !== '' ? finalRequirement(viewItems, analysis, Number(targetCut)) : null
         const knownItems = subject.items.filter((item) => item.points !== null)
         const recorded = knownItems.filter((item) => item.myScore !== null).length
         const confirmedGrade = analysis ? gradeForScore(analysis.confirmedScore) : null
@@ -493,6 +568,7 @@ function GradesPage() {
                             myScore: score === null ? null : String(score),
                           } : assessment),
                         } : entry))
+                        await refreshPredictions()
                       }}
                     />
                   ))}
@@ -516,7 +592,7 @@ function GradesPage() {
                       <p className="text-xs">
                         입력한 항목만 기준: {formatPoints(analysis.confirmedScore ?? 0)}점 ({confirmedGrade?.grade ?? '—'}) ·
                         가능 범위 {formatPoints(analysis.worstScore ?? 0)}점({worstGrade?.grade ?? '—'}) ~ {formatPoints(analysis.bestScore ?? 0)}점({bestGrade?.grade ?? '—'}) ·
-                        지필 득점률 {pct(analysis.exam.rate)} · 수행 득점률 {pct(analysis.perf.rate)} · 최종 성적이 아닙니다.
+                        최종 성적이 아닙니다.
                       </p>
                     </> : <p>만점이 알려진 항목의 점수를 저장하면 예상 등급과 GPA가 표시됩니다.</p>}
                   </div>
@@ -535,6 +611,9 @@ function GradesPage() {
                       </select>
                     </label>
                     {requirement && <TargetMessage result={requirement} />}
+                  </div>
+                  <div className="text-sm">
+                    {finalReq && <FinalMessage result={finalReq} />}
                   </div>
                 </div>
               )}
@@ -598,7 +677,7 @@ function TargetMessage({ result }: { result: ReturnType<typeof targetRequirement
   }
   return (
     <span className="text-gray-800">
-      남은 항목(반영 {formatPoints(result.remainingMax)}점)에서 평균 <b className="tabular-nums">{pct(result.rate)}</b> 득점 필요
+      남은 항목(반영 {formatPoints(result.remainingMax)}점)에서 고르게 <b className="tabular-nums">{pct(result.rate)}</b> 득점 필요
       <span className="text-gray-500"> (약 {formatPoints(result.neededPoints)}점)</span>
     </span>
   )
@@ -740,6 +819,38 @@ function ResultInput({
       </select>
       <span className="text-xs text-gray-500" role="status">{saving ? '저장 중' : ''}</span>
       {error && <span role="alert" className="text-red-500">{error}</span>}
+    </div>
+  )
+}
+
+function FinalMessage({ result }: { result: FinalResult }) {
+  if (result.status === 'achieved') {
+    return <span className="text-emerald-700">현재 추세라면 {result.name}에서 0점을 받아도 목표 등급이에요.</span>
+  }
+  if (result.status === 'impossible') {
+    return <span className="text-red-600">현재 추세로는 {result.name}을(를) 만점 받아도 목표 등급이 어려워요.</span>
+  }
+  return (
+    <span className="text-gray-800">
+      현재 추세라면 {result.name}에서 <b className="tabular-nums">{Math.ceil(result.rawScore)}점</b> 이상 필요해요
+      <span className="text-gray-500"> ({formatPoints(result.outOf)}점 만점)</span>
+    </span>
+  )
+}
+
+/** 최악~최선 범위를 한 줄로 보여 주고, 다섯 지점과 목표를 표시 */
+function RangeBar({ points, goal }: { points: (number | null)[]; goal: number | null }) {
+  const pos = (g: number) => `${Math.min(100, Math.max(0, (g / 4.3) * 100))}%`
+  const valid = points.filter((g): g is number => g !== null)
+  return (
+    <div className="relative mt-4 h-2 rounded-full bg-black/10" role="img" aria-label="시나리오 평점 범위">
+      <div className="absolute h-2 rounded-full bg-[#0096f7]/30" style={{ left: pos(Math.min(...valid)), width: `calc(${pos(Math.max(...valid))} - ${pos(Math.min(...valid))})` }} />
+      {valid.map((g, i) => (
+        <span key={i} className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black" style={{ left: pos(g) }} />
+      ))}
+      {goal !== null && (
+        <span className="absolute -top-1 h-4 w-0.5 bg-[#ff4000]" style={{ left: pos(goal) }} title="목표" />
+      )}
     </div>
   )
 }
