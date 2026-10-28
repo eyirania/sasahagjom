@@ -28,16 +28,7 @@ INSERT INTO _plan VALUES
   ('생명과학%', '실험I',    20, 1.0, 'performance', NULL,      3),
   ('생명과학%', '실험II',   20, 1.0, 'performance', NULL,      4);
 
--- 영어II 프로젝트: 10점 만점으로 입력돼 있던 점수는 100점 만점 기준으로 x10
-UPDATE student_scores ss
-SET score = ss.score * 10, updated_at = now()
-FROM assessment_items ai
-JOIN subjects s ON s.id = ai.subject_id
-WHERE ss.assessment_item_id = ai.id
-  AND s.name LIKE '영어II%'
-  AND ai.name IN ('프로젝트 1', '프로젝트 2', '프로젝트 3')
-  AND ai.points = 10
-  AND ss.score IS NOT NULL;
+-- (영어II 프로젝트 점수의 10점→100점 환산은 CSV에서 가져올 때 import-merge.sh가 한 번만 처리한다)
 
 -- 이미 있는 항목 갱신
 UPDATE assessment_items ai

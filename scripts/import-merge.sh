@@ -58,8 +58,13 @@ CREATE TEMP TABLE m_student ON COMMIT DROP AS
   SELECT c.id AS old_id, s.id AS new_id FROM c_students c JOIN students s ON lower(s.email) = lower(c.email);
 
 -- 점수/결과: CSV 값이 있으면 덮어쓰기
+-- 영어II 프로젝트는 옛 CSV에서 10점 만점이었고 지금은 100점 만점이라, CSV에서 가져오는 값만 x10 한다
 INSERT INTO student_scores (student_id, assessment_item_id, score)
-SELECT ms.new_id, mi.new_id, c.score FROM c_scores c
+SELECT ms.new_id, mi.new_id,
+  CASE WHEN ci.points = 10 AND ci.name LIKE '프로젝트%' AND csub.name LIKE '영어II%' THEN c.score * 10 ELSE c.score END
+FROM c_scores c
+JOIN c_items ci ON ci.id = c.assessment_item_id
+JOIN c_subjects csub ON csub.id = ci.subject_id
 JOIN m_student ms ON ms.old_id = c.student_id JOIN m_item mi ON mi.old_id = c.assessment_item_id
 WHERE c.score IS NOT NULL
 ON CONFLICT (student_id, assessment_item_id) DO UPDATE SET score = EXCLUDED.score, updated_at = now();
