@@ -33,7 +33,7 @@ async function predictionsFor(studentId: number) {
   const items = await db.select().from(assessmentItems)
   const rows = await db.select().from(studentScores)
   return computePredictions(
-    items.map((item) => ({ id: item.id, max: maximumScore(item), isExam: isExamItem(item) })),
+    items.map((item) => ({ id: item.id, subjectId: item.subjectId, max: maximumScore(item), isExam: isExamItem(item) })),
     rows.filter((row) => row.score !== null).map((row) => ({ studentId: row.studentId, itemId: row.assessmentItemId, score: Number(row.score) })),
     studentId,
   )
