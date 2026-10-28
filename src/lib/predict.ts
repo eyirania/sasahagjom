@@ -30,6 +30,8 @@ export type SubjectAnalysis = {
   confirmedScore: number | null
   /** 빈 지필은 지필 득점률, 빈 수행은 수행 득점률로 채운 예상 최종 (100점 기준) */
   expectedScore: number | null
+  /** 수행 득점률도 예상값도 없어 채우지 않고 둔 수행 항목의 반영 만점 합 (예상 점수 계산에서 제외) */
+  unfilledMax: number
   worstScore: number | null
   bestScore: number | null
 }
@@ -72,13 +74,17 @@ export function analyzeSubject(items: PredictItem[]): SubjectAnalysis {
   let expectedScore: number | null = null
   let worstScore: number | null = null
   let bestScore: number | null = null
+  let unfilledMax = 0
 
   if (filledMax > 0 && totalMax > 0) {
     confirmedScore = clean((earned / filledMax) * 100)
     const examFill = examRate ?? perfRate ?? 0
-    const perfFill = perfRate ?? examRate ?? 0
-    const expected = earned + predAdd + (exam.max - exam.filledMax - exam.predMax) * examFill + (perf.max - perf.filledMax - perf.predMax) * perfFill
-    expectedScore = clean((expected / totalMax) * 100)
+    const perfRemain = perf.max - perf.filledMax - perf.predMax
+    // 수행은 수행 득점률로만 채운다. 수행 입력도 예상값도 없으면 지필로 채우지 않고 계산에서 뺀다.
+    unfilledMax = perfRate === null ? perfRemain : 0
+    const perfFill = perfRate ?? 0
+    const expected = earned + predAdd + (exam.max - exam.filledMax - exam.predMax) * examFill + perfRemain * perfFill
+    expectedScore = clean((expected / (totalMax - unfilledMax)) * 100)
     worstScore = clean((earned / totalMax) * 100)
     bestScore = clean(((earned + (totalMax - filledMax)) / totalMax) * 100)
   }
@@ -91,6 +97,7 @@ export function analyzeSubject(items: PredictItem[]): SubjectAnalysis {
     perf: { max: perf.max, filledMax: perf.filledMax, earned: perf.earned, rate: perfRate },
     confirmedScore,
     expectedScore,
+    unfilledMax,
     worstScore,
     bestScore,
   }
@@ -155,6 +162,7 @@ export function emptyItemModels(items: PredictItem[], analysis: SubjectAnalysis)
     const kind = isExamItem(item) ? 'exam' : 'perf'
     const fallback = own(kind)
     const hasPred = item.predRate !== null && item.predRate !== undefined && Number.isFinite(item.predRate)
+    if (kind === 'perf' && !hasPred && analysis.perf.rate === null) continue // 채우지 않고 둔 수행
     out.push({
       name: item.name,
       max: wMax,
@@ -181,7 +189,7 @@ export function finalRequirement(items: PredictItem[], analysis: SubjectAnalysis
   const target = exams.find((e) => e.examSlot === 'final') ?? exams[exams.length - 1]
   if (!target) return null
   const others = empties.filter((e) => e !== target).reduce((sum, e) => sum + e.max * e.base, 0)
-  const need = clean((targetScore / 100) * analysis.totalMax - analysis.earned - others)
+  const need = clean((targetScore / 100) * (analysis.totalMax - analysis.unfilledMax) - analysis.earned - others)
   if (need <= 1e-9) return { status: 'achieved', name: target.name }
   const rate = need / target.max
   if (rate > 1 + 1e-9) return { status: 'impossible', name: target.name }

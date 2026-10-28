@@ -189,7 +189,7 @@ function GradesPage() {
       .map((v) => ({
         credits: v.subject.credits,
         earned: v.analysis!.earned,
-        totalMax: v.analysis!.totalMax,
+        totalMax: v.analysis!.totalMax - v.analysis!.unfilledMax,
         empties: emptyItemModels(v.items, v.analysis!),
       })),
     Number.isFinite(goalValue) && goalValue > 0 ? goalValue : null,
